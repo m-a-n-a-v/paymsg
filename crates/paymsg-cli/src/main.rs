@@ -21,6 +21,8 @@ struct Cli {
 enum Commands {
     /// Parse a message and output structured JSON
     Parse(commands::parse::ParseArgs),
+    /// Validate a message against schema and business rules
+    Validate(commands::validate::ValidateArgs),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -37,5 +39,6 @@ fn main() -> anyhow::Result<()> {
     // Execute command
     match cli.command {
         Commands::Parse(args) => commands::parse::execute(args),
+        Commands::Validate(args) => commands::validate::execute(args),
     }
 }

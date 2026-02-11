@@ -50,6 +50,9 @@ rust_decimal = { version = "1", features = ["serde-str"] }
 log = "0.4"
 env_logger = "0.11"
 
+# Terminal colors
+colored = "2"
+
 # Internal workspace dependencies
 paymsg-core = { path = "crates/paymsg-core" }
 paymsg-iso20022 = { path = "crates/paymsg-iso20022" }
