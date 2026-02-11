@@ -323,7 +323,7 @@ impl MtField {
 
     /// Parse field 61: Statement Line.
     ///
-    /// Complex format: YYMMDD[MMDD][D|C|RD|RC][FundsCode]AMOUNT[Type][CustomerRef][//BankRef][\nSupplementary]
+    /// Complex format: `YYMMDD\[MMDD\]\[D|C|RD|RC\]\[FundsCode\]AMOUNT\[Type\]\[CustomerRef\]\[//BankRef\]\[\\nSupplementary\]`
     ///
     /// This is the most complex MT field with many optional components.
     pub fn parse_field_61(&mut self) -> Result<(), PaymsgError> {
@@ -686,6 +686,24 @@ impl MtField {
 /// - Repeating fields
 ///
 /// Returns a vector of parsed fields in order of appearance.
+///
+/// # Examples
+///
+/// ```
+/// use paymsg_mt::parse_block4_fields;
+///
+/// let content = ":20:REF123\r\n:32A:260210EUR1234,56\r\n:50K:/DE89370400440532013000\r\nHANS MUELLER";
+/// let fields = parse_block4_fields(content).unwrap();
+///
+/// assert_eq!(fields.len(), 3);
+/// assert_eq!(fields[0].tag, "20");
+/// assert_eq!(fields[1].tag, "32A");
+/// assert_eq!(fields[2].tag, "50K");
+/// ```
+///
+/// # Errors
+///
+/// Returns `PaymsgError::ParseError` if field parsing or subfield extraction fails.
 pub fn parse_block4_fields(content: &str) -> Result<Vec<MtField>, PaymsgError> {
     let mut fields = Vec::new();
     let mut current_tag: Option<String> = None;
@@ -796,6 +814,13 @@ pub struct MtMessageSpec {
 }
 
 /// Load MT message specification from JSON file.
+///
+/// Loads a message specification containing field definitions, status (mandatory/optional),
+/// format patterns, and subfield specifications.
+///
+/// # Errors
+///
+/// Returns `PaymsgError::SpecLoadError` if the file cannot be read or parsed.
 pub fn load_mt_spec(spec_path: &Path) -> Result<MtMessageSpec, PaymsgError> {
     let content = std::fs::read_to_string(spec_path).map_err(|e| {
         PaymsgError::SpecLoadError {
@@ -816,7 +841,11 @@ pub fn load_mt_spec(spec_path: &Path) -> Result<MtMessageSpec, PaymsgError> {
 
 /// Load all MT specs from a directory.
 ///
-/// Loads MT103, MT202, MT940, MT942 specs.
+/// Loads MT103, MT202, MT940, MT942 specs from the `mt-specs` subdirectory.
+///
+/// # Errors
+///
+/// Returns `PaymsgError::SpecLoadError` if any spec file cannot be read or parsed.
 pub fn load_all_mt_specs(specs_dir: &Path) -> Result<HashMap<String, MtMessageSpec>, PaymsgError> {
     let mut specs = HashMap::new();
 
@@ -832,6 +861,22 @@ pub fn load_all_mt_specs(specs_dir: &Path) -> Result<HashMap<String, MtMessageSp
 }
 
 /// Helper: Parse MT amount (with comma decimal separator) to Decimal.
+///
+/// SWIFT MT messages use comma (,) as the decimal separator.
+/// This function normalizes it to period (.) for Decimal parsing.
+///
+/// # Examples
+///
+/// ```
+/// use paymsg_mt::parse_mt_amount;
+///
+/// let amount = parse_mt_amount("1234,56").unwrap();
+/// assert_eq!(amount.to_string(), "1234.56");
+/// ```
+///
+/// # Errors
+///
+/// Returns `PaymsgError::ParseError` if the amount string cannot be parsed.
 pub fn parse_mt_amount(amount_str: &str) -> Result<Decimal, PaymsgError> {
     // Replace comma with period for Decimal parsing
     let normalized = amount_str.replace(',', ".");
@@ -841,6 +886,25 @@ pub fn parse_mt_amount(amount_str: &str) -> Result<Decimal, PaymsgError> {
 }
 
 /// Helper: Parse MT date in YYMMDD format to Date.
+///
+/// Assumes 20XX century for all two-digit years.
+///
+/// # Examples
+///
+/// ```
+/// use paymsg_mt::parse_mt_date_yymmdd;
+///
+/// let date = parse_mt_date_yymmdd("260210").unwrap();
+/// assert_eq!(date.year(), 2026);
+/// assert_eq!(date.month(), 2);
+/// assert_eq!(date.day(), 10);
+/// ```
+///
+/// # Errors
+///
+/// Returns `PaymsgError::ParseError` if:
+/// - String is not exactly 6 characters
+/// - Date is not valid
 pub fn parse_mt_date_yymmdd(date_str: &str) -> Result<Date, PaymsgError> {
     if date_str.len() != 6 {
         return Err(PaymsgError::ParseError(format!(

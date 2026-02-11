@@ -547,7 +547,14 @@ fn compare_values(left: &Value, right: &Value) -> Option<std::cmp::Ordering> {
     }
 }
 
-/// Load business rules from JSON file
+/// Load business rules from JSON file.
+///
+/// Reads a business rule set definition in JSON format containing rules
+/// with conditions, assertions, and severity levels.
+///
+/// # Errors
+///
+/// Returns `PaymsgError::SpecLoadError` if the file cannot be read or parsed.
 pub fn load_business_rules(path: &Path) -> Result<BusinessRuleSet, PaymsgError> {
     let content = std::fs::read_to_string(path)
         .map_err(|e| PaymsgError::SpecLoadError {
@@ -562,13 +569,39 @@ pub fn load_business_rules(path: &Path) -> Result<BusinessRuleSet, PaymsgError> 
         })
 }
 
-/// Business rule validator for pacs.008 messages
+/// Business rule validator for pacs.008 messages.
+///
+/// Validates ISO 20022 pacs.008 messages against loaded business rules,
+/// using reference data from spec registries.
+///
+/// # Examples
+///
+/// ```no_run
+/// use paymsg_validate::BusinessRuleValidator;
+/// use paymsg_iso20022::pacs008;
+/// use paymsg_validate::Validator;
+/// use std::path::Path;
+///
+/// let validator = BusinessRuleValidator::new(
+///     Path::new("rules/pacs008_rules.json"),
+///     Path::new("paymsg-specs")
+/// ).unwrap();
+///
+/// // let doc: pacs008::Document = /* ... */;
+/// // let result = validator.validate(&doc);
+/// // assert!(result.is_valid());
+/// ```
 pub struct BusinessRuleValidator {
     rules: BusinessRuleSet,
     specs: SpecRegistries,
 }
 
 impl BusinessRuleValidator {
+    /// Create a new validator by loading rules and specs from file paths.
+    ///
+    /// # Errors
+    ///
+    /// Returns `PaymsgError::SpecLoadError` if rules or specs cannot be loaded.
     pub fn new(rules_path: &Path, specs_path: &Path) -> Result<Self, PaymsgError> {
         let rules = load_business_rules(rules_path)?;
         let loader = SpecLoader::new(Some(specs_path.to_path_buf()));
@@ -576,6 +609,9 @@ impl BusinessRuleValidator {
         Ok(Self { rules, specs })
     }
 
+    /// Create a new validator from pre-loaded rules and specs.
+    ///
+    /// Useful when you want to reuse spec registries across multiple validators.
     pub fn from_rules_and_specs(rules: BusinessRuleSet, specs: SpecRegistries) -> Self {
         Self { rules, specs }
     }

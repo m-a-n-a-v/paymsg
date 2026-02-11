@@ -44,6 +44,10 @@ impl Amount {
     /// let amount = Amount::from_str("1000.50", "USD").unwrap();
     /// assert_eq!(amount.currency, "USD");
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `PaymsgError::InvalidAmount` if the value string cannot be parsed as a decimal.
     pub fn from_str(value: &str, currency: &str) -> Result<Self> {
         let decimal = value
             .parse::<Decimal>()

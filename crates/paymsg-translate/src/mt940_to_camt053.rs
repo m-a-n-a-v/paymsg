@@ -34,7 +34,16 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use uuid::Uuid;
 
-/// Translate an MT940 message to camt.053
+/// Translate an MT940 message to camt.053.
+///
+/// Converts a SWIFT MT940 (Customer Statement) message
+/// to an ISO 20022 camt.053 (Bank to Customer Statement) message.
+///
+/// # Errors
+///
+/// Returns `PaymsgError::TranslationError` if:
+/// - Required fields are missing in MT940
+/// - Field values cannot be parsed or converted
 pub fn translate(mt940: &MtMessage) -> Result<TranslationResult<Document>, PaymsgError> {
     let mut warnings = Vec::new();
 

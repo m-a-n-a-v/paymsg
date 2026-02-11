@@ -27,6 +27,10 @@ impl Date {
     /// assert_eq!(date.month(), 1);
     /// assert_eq!(date.day(), 15);
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `PaymsgError::InvalidDate` if the date is not valid (e.g., February 30).
     pub fn from_ymd(year: i32, month: u32, day: u32) -> Result<Self> {
         NaiveDate::from_ymd_opt(year, month, day)
             .map(|inner| Self { inner })
@@ -45,6 +49,13 @@ impl Date {
     /// let date = Date::from_yyyymmdd("20240115").unwrap();
     /// assert_eq!(date.year(), 2024);
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `PaymsgError::InvalidDate` if:
+    /// - String is not exactly 8 characters
+    /// - Characters are not valid digits
+    /// - The resulting date is not valid
     pub fn from_yyyymmdd(s: &str) -> Result<Self> {
         if s.len() != 8 {
             return Err(PaymsgError::InvalidDate(format!(
@@ -67,6 +78,7 @@ impl Date {
     }
 
     /// Parses a date from YYMMDD format (common in SWIFT MT).
+    ///
     /// Assumes 20XX for years 00-99.
     ///
     /// # Examples
@@ -77,6 +89,13 @@ impl Date {
     /// let date = Date::from_yymmdd("240115").unwrap();
     /// assert_eq!(date.year(), 2024);
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `PaymsgError::InvalidDate` if:
+    /// - String is not exactly 6 characters
+    /// - Characters are not valid digits
+    /// - The resulting date is not valid
     pub fn from_yymmdd(s: &str) -> Result<Self> {
         if s.len() != 6 {
             return Err(PaymsgError::InvalidDate(format!(
@@ -101,6 +120,21 @@ impl Date {
     }
 
     /// Parses a date from ISO 8601 format (YYYY-MM-DD).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use paymsg_core::Date;
+    ///
+    /// let date = Date::from_iso8601("2024-01-15").unwrap();
+    /// assert_eq!(date.year(), 2024);
+    /// assert_eq!(date.month(), 1);
+    /// assert_eq!(date.day(), 15);
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `PaymsgError::InvalidDate` if the string cannot be parsed as ISO 8601 date.
     pub fn from_iso8601(s: &str) -> Result<Self> {
         NaiveDate::parse_from_str(s, "%Y-%m-%d")
             .map(|inner| Self { inner })
@@ -160,6 +194,23 @@ impl DateTime {
     }
 
     /// Parses a DateTime from ISO 8601 format.
+    ///
+    /// Accepts formats with or without fractional seconds:
+    /// - `2024-01-15T10:30:45`
+    /// - `2024-01-15T10:30:45.123`
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use paymsg_core::DateTime;
+    ///
+    /// let dt = DateTime::from_iso8601("2024-01-15T10:30:45").unwrap();
+    /// assert_eq!(dt.to_iso8601(), "2024-01-15T10:30:45");
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `PaymsgError::InvalidDate` if the string cannot be parsed as ISO 8601 datetime.
     pub fn from_iso8601(s: &str) -> Result<Self> {
         NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S")
             .or_else(|_| NaiveDateTime::parse_from_str(s, "%Y-%m-%dT%H:%M:%S%.f"))

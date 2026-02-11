@@ -23,7 +23,17 @@ use paymsg_mt::fields::MtField;
 use paymsg_mt::MtMessage;
 use std::collections::HashMap;
 
-/// Translate a pacs.009 message to MT202
+/// Translate a pacs.009 message to MT202.
+///
+/// Converts an ISO 20022 pacs.009 (Financial Institution Credit Transfer) message
+/// to a SWIFT MT202 (General Financial Institution Transfer) message.
+///
+/// # Errors
+///
+/// Returns `PaymsgError::TranslationError` if:
+/// - The pacs.009 document has no transactions
+/// - Required fields are missing
+/// - Field values cannot be converted
 pub fn translate(pacs009: &Pacs009Document) -> Result<TranslationResult<MtMessage>, PaymsgError> {
     let mut warnings = Vec::new();
 

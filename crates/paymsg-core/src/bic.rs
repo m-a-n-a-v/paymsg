@@ -27,6 +27,10 @@ pub struct Bic {
 impl Bic {
     /// Creates a new BIC from a code string.
     ///
+    /// Validates the BIC format and structure according to ISO 9362 standards.
+    /// Accepts both BIC8 (head office) and BIC11 (with branch code) formats.
+    /// The code is automatically normalized to uppercase.
+    ///
     /// # Examples
     ///
     /// ```
@@ -43,6 +47,15 @@ impl Bic {
     /// let bic = Bic::new("DEUTDEFF500").unwrap();
     /// assert_eq!(bic.branch, Some("500".to_string()));
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `PaymsgError::InvalidBic` if:
+    /// - Length is not 8 or 11 characters
+    /// - Institution code is not 4 alphabetic characters
+    /// - Country code is not 2 alphabetic characters
+    /// - Location code is not 2 alphanumeric characters
+    /// - Branch code (if present) is not 3 alphanumeric characters
     pub fn new(code: &str) -> Result<Self> {
         let len = code.len();
         if len != 8 && len != 11 {

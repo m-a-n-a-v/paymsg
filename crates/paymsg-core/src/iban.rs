@@ -23,6 +23,9 @@ pub struct Iban {
 impl Iban {
     /// Creates a new IBAN from a code string.
     ///
+    /// Validates the IBAN format and check digits using the Mod-97 algorithm (ISO 7064).
+    /// Spaces are automatically removed and the code is normalized to uppercase.
+    ///
     /// # Examples
     ///
     /// ```
@@ -32,6 +35,15 @@ impl Iban {
     /// assert_eq!(iban.country, "GB");
     /// assert_eq!(iban.check_digits, "82");
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `PaymsgError::InvalidIban` if:
+    /// - Length is less than 4 or greater than 34 characters
+    /// - Country code is not 2 alphabetic characters
+    /// - Check digits are not 2 numeric characters
+    /// - BBAN contains non-alphanumeric characters
+    /// - Check digits validation fails (Mod-97 algorithm)
     pub fn new(code: &str) -> Result<Self> {
         // Remove spaces and convert to uppercase
         let normalized = code.replace(' ', "").to_uppercase();

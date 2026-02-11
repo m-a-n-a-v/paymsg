@@ -16,7 +16,16 @@ pub struct TranslationResult<T> {
 }
 
 impl<T> TranslationResult<T> {
-    /// Create a new translation result with no warnings
+    /// Create a new translation result with no warnings.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use paymsg_translate::TranslationResult;
+    ///
+    /// let result = TranslationResult::new("translated message");
+    /// assert!(!result.has_warnings());
+    /// ```
     pub fn new(message: T) -> Self {
         Self {
             message,
@@ -24,7 +33,9 @@ impl<T> TranslationResult<T> {
         }
     }
 
-    /// Create a translation result with warnings
+    /// Create a translation result with warnings.
+    ///
+    /// Use this when translation succeeded but some data was lost or modified.
     pub fn with_warnings(message: T, warnings: Vec<DataLossWarning>) -> Self {
         Self { message, warnings }
     }
@@ -57,7 +68,19 @@ pub struct DataLossWarning {
 }
 
 impl DataLossWarning {
-    /// Create a new data loss warning
+    /// Create a new data loss warning.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use paymsg_translate::{DataLossWarning, DataLossCategory};
+    ///
+    /// let warning = DataLossWarning::new(
+    ///     "Field70",
+    ///     DataLossCategory::Truncation,
+    ///     "Value truncated to 140 characters"
+    /// ).with_original_value("Original long value...");
+    /// ```
     pub fn new(
         field_path: impl Into<String>,
         category: DataLossCategory,
@@ -158,11 +181,22 @@ impl AmountConverter {
 pub struct DateConverter;
 
 impl DateConverter {
-    /// Convert MT date (YYMMDD) to MX date (YYYY-MM-DD)
+    /// Convert MT date (YYMMDD) to MX date (YYYY-MM-DD).
     ///
     /// Uses SWIFT convention: YY >= 50 → 19YY, YY < 50 → 20YY
     ///
-    /// Example: "260210" → "2026-02-10"
+    /// # Examples
+    ///
+    /// ```
+    /// use paymsg_translate::DateConverter;
+    ///
+    /// let mx_date = DateConverter::mt_to_mx("260210").unwrap();
+    /// assert_eq!(mx_date, "2026-02-10");
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `PaymsgError::ParseError` if the date format is invalid.
     pub fn mt_to_mx(mt_date: &str) -> Result<String, PaymsgError> {
         if mt_date.len() != 6 {
             return Err(PaymsgError::ParseError(format!(
@@ -183,11 +217,22 @@ impl DateConverter {
         Ok(format!("{:04}-{}-{}", yyyy, mm, dd))
     }
 
-    /// Convert MX date (YYYY-MM-DD) to MT date (YYMMDD)
+    /// Convert MX date (YYYY-MM-DD) to MT date (YYMMDD).
     ///
-    /// Takes last 2 digits of year for YY
+    /// Takes last 2 digits of year for YY.
     ///
-    /// Example: "2026-02-10" → "260210"
+    /// # Examples
+    ///
+    /// ```
+    /// use paymsg_translate::DateConverter;
+    ///
+    /// let mt_date = DateConverter::mx_to_mt("2026-02-10").unwrap();
+    /// assert_eq!(mt_date, "260210");
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `PaymsgError::ParseError` if the date format is invalid.
     pub fn mx_to_mt(mx_date: &str) -> Result<String, PaymsgError> {
         // Parse ISO 8601 date format
         let parts: Vec<&str> = mx_date.split('-').collect();
@@ -215,12 +260,16 @@ impl DateConverter {
 pub struct ChargeBearerConverter;
 
 impl ChargeBearerConverter {
-    /// Convert MT 71A charge bearer code to MX ChrgBr code
+    /// Convert MT 71A charge bearer code to MX ChrgBr code.
     ///
     /// MT → MX:
     /// - SHA → SHAR (shared)
     /// - OUR → DEBT (debtor/ordering customer pays all)
     /// - BEN → CRED (creditor/beneficiary pays all)
+    ///
+    /// # Errors
+    ///
+    /// Returns `PaymsgError::TranslationError` for unknown codes.
     pub fn mt_to_mx(mt_code: &str) -> Result<String, PaymsgError> {
         match mt_code {
             "SHA" => Ok("SHAR".to_string()),
@@ -233,13 +282,17 @@ impl ChargeBearerConverter {
         }
     }
 
-    /// Convert MX ChrgBr code to MT 71A code
+    /// Convert MX ChrgBr code to MT 71A code.
     ///
     /// MX → MT:
     /// - SHAR → SHA (shared)
     /// - DEBT → OUR (debtor pays all)
     /// - CRED → BEN (creditor pays all)
     /// - SLEV → SHA (service level, default to shared)
+    ///
+    /// # Errors
+    ///
+    /// Returns `PaymsgError::TranslationError` for unknown codes.
     pub fn mx_to_mt(mx_code: &str) -> Result<String, PaymsgError> {
         match mx_code {
             "SHAR" => Ok("SHA".to_string()),

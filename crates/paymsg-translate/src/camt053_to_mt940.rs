@@ -21,7 +21,16 @@ use paymsg_core::PaymsgError;
 use paymsg_iso20022::camt053::Document;
 use paymsg_mt::{ApplicationHeader, BasicHeader, Direction, MtField, MtMessage, TextBlock};
 
-/// Translate a camt.053 message to MT940
+/// Translate a camt.053 message to MT940.
+///
+/// Converts an ISO 20022 camt.053 (Bank to Customer Statement) message
+/// to a SWIFT MT940 (Customer Statement) message.
+///
+/// # Errors
+///
+/// Returns `PaymsgError::TranslationError` if:
+/// - Required fields are missing in camt.053
+/// - Field values cannot be converted
 pub fn translate(camt053: &Document) -> Result<TranslationResult<MtMessage>, PaymsgError> {
     let mut warnings = Vec::new();
 

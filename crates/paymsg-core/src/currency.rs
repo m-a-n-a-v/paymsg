@@ -14,6 +14,8 @@ pub struct Currency {
 impl Currency {
     /// Creates a new Currency from a code.
     ///
+    /// Validates that the code is exactly 3 uppercase letters according to ISO 4217 format.
+    ///
     /// # Examples
     ///
     /// ```
@@ -22,6 +24,12 @@ impl Currency {
     /// let currency = Currency::new("USD").unwrap();
     /// assert_eq!(currency.code, "USD");
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `PaymsgError::InvalidCurrency` if:
+    /// - Length is not exactly 3 characters
+    /// - Code contains non-uppercase letters
     pub fn new(code: &str) -> Result<Self> {
         // Basic validation: must be 3 uppercase letters
         if code.len() != 3 {

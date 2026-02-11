@@ -319,6 +319,21 @@ impl SpecLoader {
     }
 
     /// Loads currency specifications from reference/currencies.json.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use paymsg_core::SpecLoader;
+    ///
+    /// let loader = SpecLoader::new(None);
+    /// let registry = loader.load_currencies().unwrap();
+    /// let usd = registry.lookup_by_code("USD").unwrap();
+    /// assert_eq!(usd.code, "USD");
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `PaymsgError::SpecLoadError` if the file cannot be read or parsed.
     pub fn load_currencies(&self) -> Result<CurrencyRegistry> {
         let path = self.specs_dir.join("reference/currencies.json");
         let content = std::fs::read_to_string(&path).map_err(|e| {
@@ -339,6 +354,21 @@ impl SpecLoader {
     }
 
     /// Loads country specifications from reference/countries.json.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use paymsg_core::SpecLoader;
+    ///
+    /// let loader = SpecLoader::new(None);
+    /// let registry = loader.load_countries().unwrap();
+    /// let us = registry.lookup_by_alpha2("US").unwrap();
+    /// assert_eq!(us.alpha2, "US");
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `PaymsgError::SpecLoadError` if the file cannot be read or parsed.
     pub fn load_countries(&self) -> Result<CountryRegistry> {
         let path = self.specs_dir.join("reference/countries.json");
         let content = std::fs::read_to_string(&path).map_err(|e| {
@@ -359,6 +389,21 @@ impl SpecLoader {
     }
 
     /// Loads IBAN format specifications from reference/iban_formats.json.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use paymsg_core::SpecLoader;
+    ///
+    /// let loader = SpecLoader::new(None);
+    /// let registry = loader.load_iban_formats().unwrap();
+    /// let de_format = registry.lookup("DE").unwrap();
+    /// assert_eq!(de_format.length, 22);
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `PaymsgError::SpecLoadError` if the file cannot be read or parsed.
     pub fn load_iban_formats(&self) -> Result<IbanRegistry> {
         let path = self.specs_dir.join("reference/iban_formats.json");
         let content = std::fs::read_to_string(&path).map_err(|e| {
@@ -379,6 +424,10 @@ impl SpecLoader {
     }
 
     /// Loads BIC specification from reference/bic_spec.json.
+    ///
+    /// # Errors
+    ///
+    /// Returns `PaymsgError::SpecLoadError` if the file cannot be read or parsed.
     pub fn load_bic_spec(&self) -> Result<BicSpec> {
         let path = self.specs_dir.join("reference/bic_spec.json");
         let content = std::fs::read_to_string(&path).map_err(|e| {
@@ -399,6 +448,12 @@ impl SpecLoader {
     }
 
     /// Loads SWIFT character set definitions from reference/swift_charsets.json.
+    ///
+    /// Returns a map of character set names (X, Y, Z) to their definitions.
+    ///
+    /// # Errors
+    ///
+    /// Returns `PaymsgError::SpecLoadError` if the file cannot be read or parsed.
     pub fn load_swift_charsets(&self) -> Result<HashMap<String, SwiftCharset>> {
         let path = self.specs_dir.join("reference/swift_charsets.json");
         let content = std::fs::read_to_string(&path).map_err(|e| {
@@ -419,6 +474,26 @@ impl SpecLoader {
     }
 
     /// Loads all reference data into registries.
+    ///
+    /// This is a convenience method that loads currencies, countries, IBAN formats,
+    /// BIC spec, and SWIFT character sets in one call.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use paymsg_core::SpecLoader;
+    ///
+    /// let loader = SpecLoader::new(None);
+    /// let registries = loader.load_all().unwrap();
+    ///
+    /// // Access any registry
+    /// let usd = registries.currencies.lookup_by_code("USD").unwrap();
+    /// let us = registries.countries.lookup_by_alpha2("US").unwrap();
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `PaymsgError::SpecLoadError` if any file cannot be read or parsed.
     pub fn load_all(&self) -> Result<SpecRegistries> {
         Ok(SpecRegistries {
             currencies: self.load_currencies()?,

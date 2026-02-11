@@ -90,6 +90,25 @@ impl TextBlock {
     /// Parse fields from the text block content.
     ///
     /// Returns a vector of parsed fields with tag, value, and extracted subfields.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use paymsg_mt::TextBlock;
+    ///
+    /// let block = TextBlock {
+    ///     content: ":20:REF123\r\n:32A:260210EUR1234,56".to_string(),
+    /// };
+    ///
+    /// let fields = block.parse_fields().unwrap();
+    /// assert_eq!(fields.len(), 2);
+    /// assert_eq!(fields[0].tag, "20");
+    /// assert_eq!(fields[0].value, "REF123");
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `PaymsgError::ParseError` if the field format is invalid.
     pub fn parse_fields(&self) -> Result<Vec<crate::fields::MtField>, crate::PaymsgError> {
         crate::fields::parse_block4_fields(&self.content)
     }

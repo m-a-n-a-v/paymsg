@@ -20,7 +20,38 @@ use paymsg_mt::blocks::{ApplicationHeader, BasicHeader, Direction, TextBlock, Us
 use paymsg_mt::MtMessage;
 use std::collections::HashMap;
 
-/// Translate a pacs.008 message to MT103
+/// Translate a pacs.008 message to MT103.
+///
+/// Converts an ISO 20022 pacs.008 (FI to FI Customer Credit Transfer) message
+/// to a SWIFT MT103 (Single Customer Credit Transfer) message.
+///
+/// # Data Loss Warnings
+///
+/// The translation may produce warnings in these cases:
+/// - Multiple transactions in pacs.008 (MT103 supports only one)
+/// - Fields present in MX but not representable in MT
+/// - Name/address truncation to fit MT field length limits
+///
+/// # Examples
+///
+/// ```no_run
+/// use paymsg_translate::translate_pacs008_to_mt103;
+/// use paymsg_iso20022::pacs008;
+///
+/// // let pacs008_doc: pacs008::Document = /* ... */;
+/// // let result = translate_pacs008_to_mt103(&pacs008_doc).unwrap();
+/// // let mt103_msg = result.message;
+/// // if result.has_warnings() {
+/// //     println!("Translation warnings: {:?}", result.warnings);
+/// // }
+/// ```
+///
+/// # Errors
+///
+/// Returns `PaymsgError::TranslationError` if:
+/// - The pacs.008 document has no transactions
+/// - Required fields are missing
+/// - Field values cannot be converted
 pub fn translate(pacs008: &Pacs008Document) -> Result<TranslationResult<MtMessage>, PaymsgError> {
     let mut warnings = Vec::new();
 

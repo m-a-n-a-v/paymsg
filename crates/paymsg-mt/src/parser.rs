@@ -31,7 +31,31 @@ impl MtMessage {
     /// The message must be in the standard 5-block format:
     /// `{1:...}{2:...}{3:...}{4:...-}{5:...}`
     ///
-    /// Blocks 3 and 5 are optional.
+    /// Blocks 3 and 5 are optional. The parser handles both `\r\n` and `\n` line endings.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use paymsg_mt::MtMessage;
+    ///
+    /// let input = "{1:F01DEUTDEFFAXXX0000000000}{2:I940CORPORATEXXXN}{4:
+    /// :20:STMT20231115001
+    /// :25:DE89370400440532013000
+    /// :28C:235/1
+    /// :60F:C231114EUR10000,00
+    /// :62F:C231115EUR10000,00
+    /// -}";
+    ///
+    /// let msg = MtMessage::parse(input).unwrap();
+    /// assert_eq!(msg.block2.message_type, "940");
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `PaymsgError::ParseError` if:
+    /// - Required blocks (1, 2, 4) are missing
+    /// - Block format is invalid
+    /// - Block content cannot be parsed
     pub fn parse(input: &str) -> Result<Self, PaymsgError> {
         // Normalize line endings to \n
         let input = input.replace("\r\n", "\n");

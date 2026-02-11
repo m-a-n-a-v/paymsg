@@ -40,7 +40,16 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use uuid::Uuid;
 
-/// Translate an MT942 message to camt.052
+/// Translate an MT942 message to camt.052.
+///
+/// Converts a SWIFT MT942 (Interim Transaction Report) message
+/// to an ISO 20022 camt.052 (Bank to Customer Account Report) message.
+///
+/// # Errors
+///
+/// Returns `PaymsgError::TranslationError` if:
+/// - Required fields are missing in MT942
+/// - Field values cannot be parsed or converted
 pub fn translate(mt942: &MtMessage) -> Result<TranslationResult<Document>, PaymsgError> {
     let mut warnings = Vec::new();
 

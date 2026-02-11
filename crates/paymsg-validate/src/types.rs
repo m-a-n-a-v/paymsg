@@ -31,6 +31,15 @@ pub struct ValidationIssue {
 
 impl ValidationIssue {
     /// Create a new error-level validation issue.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use paymsg_validate::ValidationIssue;
+    ///
+    /// let issue = ValidationIssue::error("E001", "Missing mandatory field")
+    ///     .with_field_path("Block4.Field20");
+    /// ```
     pub fn error(id: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
             id: id.into(),
@@ -42,6 +51,8 @@ impl ValidationIssue {
     }
 
     /// Create a new warning-level validation issue.
+    ///
+    /// Warnings indicate non-fatal issues that should be reviewed but don't prevent processing.
     pub fn warning(id: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
             id: id.into(),
@@ -53,6 +64,8 @@ impl ValidationIssue {
     }
 
     /// Create a new info-level validation issue.
+    ///
+    /// Info issues are purely informational and do not affect validity.
     pub fn info(id: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
             id: id.into(),
@@ -85,6 +98,16 @@ pub struct ValidationResult {
 
 impl ValidationResult {
     /// Create a new empty validation result.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use paymsg_validate::{ValidationResult, ValidationIssue};
+    ///
+    /// let mut result = ValidationResult::new();
+    /// result.add_issue(ValidationIssue::error("E001", "Missing field"));
+    /// assert!(!result.is_valid());
+    /// ```
     pub fn new() -> Self {
         Self { issues: Vec::new() }
     }
@@ -95,6 +118,8 @@ impl ValidationResult {
     }
 
     /// Check if validation passed (no errors).
+    ///
+    /// Returns `true` if there are no error-level issues. Warnings and info do not affect validity.
     pub fn is_valid(&self) -> bool {
         !self.has_errors()
     }
@@ -146,8 +171,34 @@ impl Default for ValidationResult {
 }
 
 /// Trait for message validators.
+///
+/// Implement this trait to create custom validators for message types.
+///
+/// # Examples
+///
+/// ```
+/// use paymsg_validate::{Validator, ValidationResult, ValidationIssue};
+///
+/// struct MyMessage {
+///     value: String,
+/// }
+///
+/// struct MyValidator;
+///
+/// impl Validator<MyMessage> for MyValidator {
+///     fn validate(&self, message: &MyMessage) -> ValidationResult {
+///         let mut result = ValidationResult::new();
+///         if message.value.is_empty() {
+///             result.add_issue(ValidationIssue::error("E001", "Value cannot be empty"));
+///         }
+///         result
+///     }
+/// }
+/// ```
 pub trait Validator<T> {
     /// Validate a message and return validation results.
+    ///
+    /// Returns a `ValidationResult` containing all issues found during validation.
     fn validate(&self, message: &T) -> ValidationResult;
 }
 

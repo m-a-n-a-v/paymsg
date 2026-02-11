@@ -17,7 +17,45 @@ use std::fmt::Write as FmtWrite;
 impl MtMessage {
     /// Serialize the MT message to SWIFT MT text format.
     ///
-    /// Returns a string in the standard 5-block format with proper formatting.
+    /// Returns a string in the standard 5-block format with proper formatting,
+    /// including CRLF line endings in Block 4 and proper field delimiters.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use paymsg_mt::{MtMessage, BasicHeader, ApplicationHeader, Direction, TextBlock};
+    ///
+    /// let msg = MtMessage {
+    ///     block1: BasicHeader {
+    ///         application_id: "F".to_string(),
+    ///         service_id: "01".to_string(),
+    ///         logical_terminal_address: "DEUTDEFFAXXX".to_string(),
+    ///         session_number: "0".to_string(),
+    ///         sequence_number: "0".to_string(),
+    ///     },
+    ///     block2: ApplicationHeader {
+    ///         direction: Direction::Input,
+    ///         message_type: "103".to_string(),
+    ///         bic: "BNPAFRPPXXXX".to_string(),
+    ///         priority: "N".to_string(),
+    ///         delivery_monitoring: None,
+    ///         obsolescence_period: None,
+    ///     },
+    ///     block3: None,
+    ///     block4: TextBlock {
+    ///         content: ":20:REF123\r\n:32A:260210EUR1234,56".to_string(),
+    ///     },
+    ///     block5: None,
+    /// };
+    ///
+    /// let output = msg.serialize().unwrap();
+    /// assert!(output.contains("{1:F01DEUTDEFFAXXX0000000000}"));
+    /// assert!(output.contains("{2:I103BNPAFRPPXXXXN}"));
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns `PaymsgError::SerializationError` if any field has invalid length or format.
     pub fn serialize(&self) -> Result<String, PaymsgError> {
         let mut output = String::new();
 
@@ -248,14 +286,34 @@ fn parse_and_pad(s: &str, width: usize) -> Result<String, PaymsgError> {
 
 /// Format an amount with comma as decimal separator (SWIFT MT format).
 ///
-/// Example: Decimal("1234.56") → "1234,56"
+/// SWIFT MT messages use comma (,) as the decimal separator instead of period (.).
+///
+/// # Examples
+///
+/// ```
+/// use paymsg_mt::format_mt_amount;
+/// use rust_decimal::Decimal;
+///
+/// let amount = Decimal::new(123456, 2); // 1234.56
+/// assert_eq!(format_mt_amount(amount), "1234,56");
+/// ```
 pub fn format_mt_amount(amount: Decimal) -> String {
     amount.to_string().replace('.', ",")
 }
 
 /// Format a date as YYMMDD (SWIFT MT format).
 ///
-/// Example: Date(2026-02-10) → "260210"
+/// Extracts the last two digits of the year to create the YY format.
+///
+/// # Examples
+///
+/// ```
+/// use paymsg_mt::format_mt_date_yymmdd;
+/// use paymsg_core::Date;
+///
+/// let date = Date::from_iso8601("2026-02-10").unwrap();
+/// assert_eq!(format_mt_date_yymmdd(&date), "260210");
+/// ```
 pub fn format_mt_date_yymmdd(date: &Date) -> String {
     let s = date.to_string();
     // Date is in format YYYY-MM-DD, extract YY-MM-DD
@@ -272,7 +330,22 @@ pub fn format_mt_date_yymmdd(date: &Date) -> String {
 /// Serialize multiple fields into Block 4 content format.
 ///
 /// This helper takes a vector of fields and formats them as Block 4 content
-/// with proper :TAG:VALUE format and line breaks.
+/// with proper `:TAG:VALUE` format and CRLF line breaks.
+///
+/// # Examples
+///
+/// ```
+/// use paymsg_mt::{serialize_fields, MtField};
+///
+/// let fields = vec![
+///     MtField::new("20", "REF123"),
+///     MtField::new("32A", "260210EUR1234,56"),
+/// ];
+///
+/// let content = serialize_fields(&fields);
+/// assert!(content.contains(":20:REF123"));
+/// assert!(content.contains(":32A:260210EUR1234,56"));
+/// ```
 pub fn serialize_fields(fields: &[MtField]) -> String {
     let mut output = String::new();
 
