@@ -11,6 +11,7 @@ use paymsg_core::PaymsgError;
 pub mod blocks;
 pub mod fields;
 pub mod parser;
+pub mod serializer;
 
 // Re-export main types
 pub use blocks::{
@@ -21,6 +22,7 @@ pub use fields::{
     MtField, MtFieldSpec, MtMessageSpec, MtSubfieldSpec,
 };
 pub use parser::MtMessage;
+pub use serializer::{format_mt_amount, format_mt_date_yymmdd, serialize_fields};
 
 /// Result type for MT operations.
 pub type Result<T> = std::result::Result<T, PaymsgError>;
