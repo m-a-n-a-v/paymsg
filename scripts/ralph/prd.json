@@ -48,7 +48,7 @@
       "title": "ISO 20022 XML parser — pacs.008 (Customer Credit Transfer)",
       "description": "In paymsg-iso20022, implement XML parsing for pacs.008.001.10 using quick-xml with serde. Define Rust structs for the message hierarchy: Document > FIToFICstmrCdtTrf > GrpHdr (MsgId, CreDtTm, NbOfTxs, SttlmInf, InstgAgt, InstdAgt) + CdtTrfTxInf[] (PmtId, IntrBkSttlmAmt, IntrBkSttlmDt, ChrgBr, InstdAmt, XchgRate, Dbtr, DbtrAcct, DbtrAgt, CdtrAgt, Cdtr, CdtrAcct, RmtInf, InstrForCdtrAgt, PmtTpInf). Handle XML namespaces correctly (urn:iso:std:iso:20022:tech:xsd:pacs.008.001.10). Handle optional elements with Option<T>. Handle the Ccy attribute on amount elements. Parse BICFI, IBAN, and party identification elements. Write tests parsing all pacs.008 XML files from ../paymsg-specs/testdata/mx/pacs.008/.",
       "priority": 7,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PAYMSG-008",

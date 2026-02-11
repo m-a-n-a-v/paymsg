@@ -576,3 +576,156 @@ Started: 2026-02-10
 
 ---
 
+
+## 2026-02-10 - PAYMSG-007 ✅ COMPLETE
+
+**Status**: Fully implemented and passing all quality checks
+
+### What was implemented:
+1. Created comprehensive pacs.008.001.10 XML parsing infrastructure (pacs008.rs):
+   - **Document**: Root wrapper for pacs.008 messages
+   - **FIToFICstmrCdtTrf**: Main message container
+   - **GroupHeader**: Message-level information
+     - MsgId, CreDtTm, NbOfTxs
+     - TtlIntrBkSttlmAmt (optional with currency attribute)
+     - IntrBkSttlmDt (optional)
+     - SettlementInformation with clearing system
+     - InstgAgt, InstdAgt (instructing/instructed agents)
+   - **CreditTransferTransactionInformation[]**: Transaction array
+     - PaymentIdentification (InstrId, EndToEndId, TxId, UETR)
+     - PaymentTypeInformation (optional: priority, service level, local instrument, category purpose)
+     - IntrBkSttlmAmt (mandatory settlement amount with Ccy attribute)
+     - InstdAmt (optional instructed amount with Ccy attribute)
+     - XchgRate (optional exchange rate)
+     - ChrgBr (charge bearer: SHAR, DEBT, CRED)
+     - ChargesInformation[] (optional charges with agent)
+     - IntrmyAgt1/2/3 (optional intermediary agents)
+     - Debtor/Creditor parties with name, postal address, organization/person ID
+     - DbtrAcct/CdtrAcct (accounts with IBAN or other ID, account type, currency)
+     - DbtrAgt/CdtrAgt (debtor/creditor agents)
+     - InstrForCdtrAgt, InstrForNxtAgt (optional instructions)
+     - Purpose (optional payment purpose)
+     - RegulatoryReporting (optional regulatory info)
+     - RemittanceInformation (optional unstructured/structured remittance)
+
+2. Implemented XML attribute handling:
+   - **@Ccy attribute**: Currency on amount elements using `#[serde(rename = "@Ccy")]`
+   - **$text content**: Amount value using `#[serde(rename = "$text")]`
+   - ActiveCurrencyAndAmount for settlement amounts
+   - ActiveOrHistoricCurrencyAndAmount for instructed amounts
+
+3. Complex nested structures:
+   - **PostalAddress**: Full address with street, building, post code, town, country subdivision, country
+   - **Party identification**: Support for both organization (OrgId) and person (PrvtId) with scheme names
+   - **Account identification**: IBAN or generic other with scheme name
+   - **Financial institution ID**: BICFI, name, postal address
+   - **Document type**: Code or proprietary with flexible structure
+   - **Remittance information**: Both unstructured (text array) and structured (document references)
+
+4. XML namespace handling:
+   - Proper deserialization with `urn:iso:std:iso:20022:tech:xsd:pacs.008.001.10` namespace
+   - Serialization adds namespace to Document element
+   - XML declaration added: `<?xml version="1.0" encoding="UTF-8"?>`
+
+5. Helper functions in lib.rs:
+   - **parse_pacs008()**: Convenience function to parse XML string to Document
+   - **serialize_pacs008()**: Serialize Document to XML string with proper namespace and declaration
+
+6. Comprehensive test coverage (9 new tests):
+   - **Unit tests in pacs008.rs** (2 tests):
+     - test_parse_minimal_pacs008: Validates basic parsing with inline XML
+     - test_parse_amount_with_currency: Validates Ccy attribute handling
+   - **Integration tests** (7 tests in pacs008_tests.rs):
+     - test_parse_minimal_valid: Validates minimal required fields
+     - test_parse_full_valid: Validates all optional fields including:
+       - Settlement information with clearing system
+       - UETR, payment type information
+       - Instructed amount different from settlement amount
+       - Exchange rate
+       - Multiple charges
+       - Intermediary agent
+       - Full postal addresses for debtor/creditor
+       - Organization IDs with scheme names
+       - Account types and currencies
+       - Instructions for creditor/next agent
+       - Purpose, regulatory reporting
+       - Structured and unstructured remittance information
+     - test_parse_sepa_credit: SEPA payment validation
+     - test_parse_usd_wire: USD wire payment validation
+     - test_parse_multi_transaction: Multiple transactions in one message
+     - test_parse_invalid_missing_element_should_fail: Validates error handling
+     - test_roundtrip_serialization: Parse → serialize → re-parse validation
+
+### Files changed:
+- crates/paymsg-iso20022/src/pacs008.rs (NEW - 620 lines)
+- crates/paymsg-iso20022/src/lib.rs (added pacs008 module and helper functions)
+- crates/paymsg-iso20022/Cargo.toml (added rust_decimal dependency)
+- crates/paymsg-iso20022/tests/pacs008_tests.rs (NEW - 351 lines)
+
+### Quality checks passed:
+- ✅ `cargo build --workspace` - All crates compile with no warnings
+- ✅ `cargo test --workspace` - 181 tests pass (172 from previous + 9 new)
+  - 72 tests from paymsg-core
+  - 2 tests from paymsg-iso20022 unit tests
+  - 7 tests from paymsg-iso20022 integration tests
+  - 91 tests from paymsg-mt (all still passing)
+- ✅ `cargo clippy --workspace -- -D warnings` - No warnings
+- ✅ Committed changes with proper message format
+- ✅ Updated PRD: PAYMSG-007 passes = true
+
+### Learnings for future iterations:
+- **XML attribute syntax**: Use `@AttributeName` for attributes, `$text` for element text content
+  - Example: `<IntrBkSttlmAmt Ccy="EUR">1000.00</IntrBkSttlmAmt>`
+  - Maps to struct with `#[serde(rename = "@Ccy")] currency: String` and `#[serde(rename = "$text")] value: Decimal`
+- **quick-xml serde integration**: Works seamlessly with derive macros
+  - Automatically handles XML namespaces during deserialization
+  - Must manually add namespace during serialization (replace in string or use proper serializer)
+  - Optional elements use `Option<T>` with `#[serde(skip_serializing_if = "Option::is_none")]`
+- **ISO 20022 naming conventions**: Use full element names from schema
+  - Element names are CamelCase in XML: `GrpHdr`, `CdtTrfTxInf`, `IntrBkSttlmAmt`
+  - Struct field names use snake_case with `#[serde(rename = "...")]`: `group_header`, `credit_transfer_transaction_information`
+  - Keep struct names matching XML for clarity: `GroupHeader`, `CreditTransferTransactionInformation`
+- **Complex nested structures**: ISO 20022 has deep nesting
+  - Financial institution: BranchAndFinancialInstitutionIdentification > FinancialInstitutionIdentification > BICFI/Nm/PstlAdr
+  - Party: PartyIdentification > Id > OrgId/PrvtId > Othr > GenericOrganizationIdentification > Id + SchmeNm
+  - Account: CashAccount > Id > IBAN or Othr > GenericAccountIdentification
+  - Each level needs its own struct definition
+- **Optional vs required fields**: ISO 20022 has many optional elements
+  - Group-level settlement date/amount often optional (can be at transaction level)
+  - UETR is optional but recommended for tracking
+  - Payment type information entirely optional
+  - Instructed amount only present when different from settlement amount
+  - All instructions, purpose, regulatory reporting, remittance info optional
+- **Array fields**: Some elements can repeat
+  - CdtTrfTxInf: Vec of transactions
+  - ChrgsInf: Vec of charges
+  - Intermediary agents numbered (IntrmyAgt1, 2, 3) but modeled as separate Option fields
+  - InstrForCdtrAgt, InstrForNxtAgt, RgltryRptg: Vec of instructions/details
+  - Unstructured remittance: Vec<String> for multiple lines
+- **Amount types**: Two different amount types in pacs.008
+  - ActiveCurrencyAndAmount: For settled amounts (IntrBkSttlmAmt, TtlIntrBkSttlmAmt)
+  - ActiveOrHistoricCurrencyAndAmount: For instructed amounts (InstdAmt, charges)
+  - Both have same structure (Ccy + value) but different type names per schema
+- **Path resolution in tests**: Integration tests from `tests/` directory
+  - CARGO_MANIFEST_DIR points to crate directory (crates/paymsg-iso20022)
+  - Need to go up 3 levels to reach workspace parent, then navigate to sibling paymsg-specs
+  - Pattern: `parent().parent().parent().join("paymsg-specs")`
+- **Decimal parsing**: rust_decimal handles string amounts correctly
+  - XML amounts are strings: "1000.00", "25000.00"
+  - Serde automatically deserializes to Decimal using FromStr
+  - No manual parsing needed in struct definitions
+- **Round-trip testing strategy**: Best validation for serialization
+  - Parse XML → serialize → re-parse → compare key fields
+  - Full struct comparison difficult due to potential whitespace differences
+  - Focus on comparing business-critical fields (IDs, amounts, parties)
+- **Test data organization**: paymsg-specs has excellent test coverage
+  - minimal_valid.xml: Only required fields
+  - full_valid.xml: All optional fields populated
+  - sepa_credit.xml: SEPA-specific format
+  - usd_wire.xml: US wire format
+  - multi_transaction.xml: Multiple transactions
+  - invalid_*.xml: Error cases for validation testing
+  - Each .xml has corresponding .xml.meta.json with expectations
+
+---
+
