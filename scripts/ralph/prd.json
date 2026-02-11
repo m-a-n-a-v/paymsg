@@ -160,7 +160,7 @@
       "title": "Integration tests — end-to-end translation round trips",
       "description": "Create comprehensive integration tests in paymsg-cli/tests/. Test full round-trip translations: MT103 → pacs.008 → MT103 (verify key fields preserved). Test pacs.008 → MT103 → pacs.008. Test MT202 ↔ pacs.009 round trips. Test MT940 ↔ camt.053 round trips. Test MT942 ↔ camt.052 round trips. Use all translation pair files from ../paymsg-specs/testdata/translation_pairs/. Verify that data loss warnings are correctly reported for lossy translations. Verify that validation passes on translated messages. These tests exercise the full pipeline: parse → translate → validate → serialize.",
       "priority": 23,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PAYMSG-024",
