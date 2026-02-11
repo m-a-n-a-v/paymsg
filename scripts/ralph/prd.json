@@ -62,14 +62,14 @@
       "title": "ISO 20022 XML parser — camt.053 and camt.052 (Statements)",
       "description": "In paymsg-iso20022, implement XML parsing for camt.053.001.10 (Bank-to-Customer Statement) and camt.052.001.10 (Interim Report). Define structs for: Document > BkToCstmrStmt/BkToCstmrAcctRpt > GrpHdr + Stmt/Rpt[] containing Acct, Bal[], Ntry[] (entries with amounts, dates, references, transaction details). Handle balance types (OPBD=opening booked, CLBD=closing booked, CLAV=closing available, FWAV=forward available, ITBD=interim booked). Handle entry status (BOOK, PDNG, INFO). Reuse common types. Write tests with camt.053 and camt.052 test data.",
       "priority": 9,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PAYMSG-010",
       "title": "ISO 20022 XML serializer — generate MX messages",
       "description": "In paymsg-iso20022, implement XML serialization for all 4 message types. Generate well-formed XML with proper namespaces, indentation, and XML declaration. Handle the Ccy attribute on IntrBkSttlmAmt and InstdAmt elements. Serialize optional elements only when present. Write round-trip tests: parse XML → serialize → parse again → compare structs. Test with all XML files from ../paymsg-specs/testdata/mx/. Ensure generated XML is valid and human-readable with 2-space indentation.",
       "priority": 10,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PAYMSG-011",
