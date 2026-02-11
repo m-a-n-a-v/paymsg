@@ -236,6 +236,422 @@ impl MtField {
         Ok(())
     }
 
+    /// Parse field 25P: Account Identification with BIC.
+    ///
+    /// Format: BIC/Account where BIC is 8 or 11 characters and Account is up to 35 characters.
+    pub fn parse_field_25p(&mut self) -> Result<(), PaymsgError> {
+        let value = self.value.trim();
+
+        // Find the slash separator
+        if let Some(slash_pos) = value.find('/') {
+            let bic_str = &value[..slash_pos];
+            let account_str = &value[slash_pos + 1..];
+
+            self.subfields.insert("bic".to_string(), bic_str.to_string());
+            self.subfields
+                .insert("account".to_string(), account_str.to_string());
+        } else {
+            return Err(PaymsgError::ParseError(
+                "Field 25P must contain BIC/Account format with slash separator".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Parse field 28C: Statement Number/Sequence Number.
+    ///
+    /// Format: StatementNumber[/SequenceNumber] where both are up to 5 digits.
+    pub fn parse_field_28c(&mut self) -> Result<(), PaymsgError> {
+        let value = self.value.trim();
+
+        if let Some(slash_pos) = value.find('/') {
+            let stmt_num = &value[..slash_pos];
+            let seq_num = &value[slash_pos + 1..];
+
+            self.subfields
+                .insert("statement_number".to_string(), stmt_num.to_string());
+            self.subfields
+                .insert("sequence_number".to_string(), seq_num.to_string());
+        } else {
+            // No sequence number, just statement number
+            self.subfields
+                .insert("statement_number".to_string(), value.to_string());
+        }
+
+        Ok(())
+    }
+
+    /// Parse balance fields: 60F, 60M, 62F, 62M, 64, 65.
+    ///
+    /// Format: [D|C]YYMMDDCCCAMOUNT where:
+    /// - D/C: Debit or Credit indicator (1 char)
+    /// - YYMMDD: Date (6 digits)
+    /// - CCC: Currency code (3 letters)
+    /// - AMOUNT: Amount with comma decimal separator
+    pub fn parse_balance_field(&mut self) -> Result<(), PaymsgError> {
+        let value = self.value.trim();
+
+        if value.len() < 11 {
+            return Err(PaymsgError::ParseError(format!(
+                "Balance field {} too short: expected at least 11 chars, got {}",
+                self.tag,
+                value.len()
+            )));
+        }
+
+        // Extract debit/credit indicator
+        let dc_mark = &value[0..1];
+        self.subfields.insert("dc_mark".to_string(), dc_mark.to_string());
+
+        // Extract date (YYMMDD)
+        let date_str = &value[1..7];
+        self.subfields.insert("date".to_string(), date_str.to_string());
+
+        // Extract currency (3 letters)
+        let currency_str = &value[7..10];
+        self.subfields
+            .insert("currency".to_string(), currency_str.to_string());
+
+        // Extract amount (rest of the string)
+        let amount_str = &value[10..];
+        self.subfields
+            .insert("amount".to_string(), amount_str.to_string());
+
+        Ok(())
+    }
+
+    /// Parse field 61: Statement Line.
+    ///
+    /// Complex format: YYMMDD[MMDD][D|C|RD|RC][FundsCode]AMOUNT[Type][CustomerRef][//BankRef][\nSupplementary]
+    ///
+    /// This is the most complex MT field with many optional components.
+    pub fn parse_field_61(&mut self) -> Result<(), PaymsgError> {
+        let value = self.value.trim();
+
+        if value.len() < 10 {
+            return Err(PaymsgError::ParseError(format!(
+                "Field 61 too short: expected at least 10 chars, got {}",
+                value.len()
+            )));
+        }
+
+        let mut pos = 0;
+
+        // Check if there's a continuation line (supplementary details)
+        let (main_line, _supplementary) = if let Some(newline_pos) = value.find('\n') {
+            let supp = value[newline_pos + 1..].trim().to_string();
+            if !supp.is_empty() {
+                self.subfields
+                    .insert("supplementary_details".to_string(), supp.clone());
+            }
+            (&value[..newline_pos], Some(supp))
+        } else {
+            (value, None)
+        };
+
+        // Extract value date (YYMMDD) - 6 digits
+        if main_line.len() < 6 {
+            return Err(PaymsgError::ParseError(
+                "Field 61: insufficient length for value date".to_string(),
+            ));
+        }
+        let value_date = &main_line[pos..pos + 6];
+        self.subfields
+            .insert("value_date".to_string(), value_date.to_string());
+        pos += 6;
+
+        // Check for optional entry date (MMDD) - 4 digits
+        // Entry date is present if:
+        // 1. Next 4 chars are all digits AND
+        // 2. The char after those 4 digits is a D/C mark (D, C, or R for reversal)
+        // This prevents misinterpreting amounts starting with 0 as entry dates
+        if pos + 4 <= main_line.len()
+            && main_line[pos..pos + 4].chars().all(|c| c.is_ascii_digit())
+            && pos + 4 < main_line.len()
+        {
+            let char_after = main_line.chars().nth(pos + 4).unwrap();
+            if char_after == 'D' || char_after == 'C' || char_after == 'R' {
+                let entry_date = &main_line[pos..pos + 4];
+                self.subfields
+                    .insert("entry_date".to_string(), entry_date.to_string());
+                pos += 4;
+            }
+        }
+
+        // Extract D/C mark - can be D, C, RD, or RC
+        if pos >= main_line.len() {
+            return Err(PaymsgError::ParseError(
+                "Field 61: missing debit/credit mark".to_string(),
+            ));
+        }
+
+        let dc_mark = if pos + 2 <= main_line.len()
+            && (main_line[pos..pos + 2] == *"RD" || main_line[pos..pos + 2] == *"RC")
+        {
+            let mark = &main_line[pos..pos + 2];
+            pos += 2;
+            mark
+        } else {
+            let mark = &main_line[pos..pos + 1];
+            pos += 1;
+            mark
+        };
+        self.subfields
+            .insert("dc_mark".to_string(), dc_mark.to_string());
+
+        // Check for optional funds code (single letter after D/C mark, before amount)
+        // Funds code is present if next char is a letter (not a digit)
+        if pos < main_line.len()
+            && main_line
+                .chars()
+                .nth(pos)
+                .map(|c| c.is_ascii_alphabetic())
+                .unwrap_or(false)
+        {
+            let funds_code = &main_line[pos..pos + 1];
+            self.subfields
+                .insert("funds_code".to_string(), funds_code.to_string());
+            pos += 1;
+        }
+
+        // Extract amount - continues until we hit a letter (transaction type)
+        // Amount can contain digits and comma
+        let amount_start = pos;
+        while pos < main_line.len() {
+            let ch = main_line.chars().nth(pos).unwrap();
+            if ch.is_ascii_digit() || ch == ',' {
+                pos += 1;
+            } else {
+                break;
+            }
+        }
+
+        if pos == amount_start {
+            return Err(PaymsgError::ParseError(
+                "Field 61: missing amount".to_string(),
+            ));
+        }
+
+        let amount = &main_line[amount_start..pos];
+        self.subfields
+            .insert("amount".to_string(), amount.to_string());
+
+        // Extract transaction type (1 letter + 3 alphanumeric)
+        if pos + 4 <= main_line.len() {
+            let trans_type = &main_line[pos..pos + 4];
+            self.subfields
+                .insert("transaction_type".to_string(), trans_type.to_string());
+            pos += 4;
+        }
+
+        // Extract customer reference - everything until "//" or end of line
+        let remaining = &main_line[pos..];
+        if let Some(slash_pos) = remaining.find("//") {
+            let customer_ref = &remaining[..slash_pos];
+            if !customer_ref.is_empty() {
+                self.subfields
+                    .insert("customer_reference".to_string(), customer_ref.to_string());
+            }
+
+            // Extract bank reference (after //)
+            let bank_ref = &remaining[slash_pos + 2..];
+            if !bank_ref.is_empty() {
+                self.subfields
+                    .insert("bank_reference".to_string(), bank_ref.to_string());
+            }
+        } else if !remaining.is_empty() {
+            // No bank reference, just customer reference
+            self.subfields
+                .insert("customer_reference".to_string(), remaining.to_string());
+        }
+
+        Ok(())
+    }
+
+    /// Parse field 86: Information to Account Owner.
+    ///
+    /// Free-form text, often with structured codes like ?20, ?21, ?32, ?60.
+    /// Can be up to 6 lines of 65 characters (390 chars total).
+    pub fn parse_field_86(&mut self) -> Result<(), PaymsgError> {
+        // Store as text, optionally parse structured codes
+        self.subfields
+            .insert("text".to_string(), self.value.clone());
+
+        // If the field contains ?NN codes, parse them
+        if self.value.contains('?') {
+            let mut structured = HashMap::new();
+            let lines = self.value.lines();
+            let mut current_code: Option<String> = None;
+            let mut current_value = String::new();
+
+            for line in lines {
+                let trimmed = line.trim();
+
+                // Check if line starts with ?NN code
+                if trimmed.starts_with('?') && trimmed.len() >= 3 {
+                    // Save previous code if any
+                    if let Some(code) = current_code.take() {
+                        structured.insert(code, current_value.trim().to_string());
+                        current_value.clear();
+                    }
+
+                    // Extract new code (2 digits after ?)
+                    let code = trimmed[1..3].to_string();
+                    let value = if trimmed.len() > 3 {
+                        &trimmed[3..]
+                    } else {
+                        ""
+                    };
+
+                    current_code = Some(code);
+                    current_value = value.to_string();
+                } else if current_code.is_some() {
+                    // Continuation line for current code
+                    if !current_value.is_empty() {
+                        current_value.push(' ');
+                    }
+                    current_value.push_str(trimmed);
+                } else {
+                    // Text before first code or unstructured text
+                    if !current_value.is_empty() {
+                        current_value.push('\n');
+                    }
+                    current_value.push_str(trimmed);
+                }
+            }
+
+            // Save last code if any
+            if let Some(code) = current_code {
+                structured.insert(code, current_value.trim().to_string());
+            }
+
+            // Store structured codes as subfield if we found any
+            if !structured.is_empty() {
+                for (code, value) in structured {
+                    self.subfields.insert(format!("code_{}", code), value);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Parse field 34F: Floor Limit Indicator (MT942).
+    ///
+    /// Format: CCCAMOUNT where:
+    /// - CCC: Currency code (3 letters)
+    /// - AMOUNT: Amount with comma decimal separator
+    pub fn parse_field_34f(&mut self) -> Result<(), PaymsgError> {
+        let value = self.value.trim();
+
+        if value.len() < 4 {
+            return Err(PaymsgError::ParseError(format!(
+                "Field 34F too short: expected at least 4 chars, got {}",
+                value.len()
+            )));
+        }
+
+        // Extract currency (3 letters)
+        let currency_str = &value[0..3];
+        self.subfields
+            .insert("currency".to_string(), currency_str.to_string());
+
+        // Extract amount (rest of the string)
+        let amount_str = &value[3..];
+        self.subfields
+            .insert("amount".to_string(), amount_str.to_string());
+
+        Ok(())
+    }
+
+    /// Parse field 13D: Date/Time Indication (MT942).
+    ///
+    /// Format: YYMMDD+HHMM
+    pub fn parse_field_13d(&mut self) -> Result<(), PaymsgError> {
+        let value = self.value.trim();
+
+        // Expected format: 6 digits + plus sign + 4 digits
+        if value.len() < 11 {
+            return Err(PaymsgError::ParseError(format!(
+                "Field 13D too short: expected at least 11 chars (YYMMDD+HHMM), got {}",
+                value.len()
+            )));
+        }
+
+        // Find the + separator
+        if let Some(plus_pos) = value.find('+') {
+            let date_str = &value[..plus_pos];
+            let time_str = &value[plus_pos + 1..];
+
+            self.subfields.insert("date".to_string(), date_str.to_string());
+            self.subfields.insert("time".to_string(), time_str.to_string());
+        } else {
+            return Err(PaymsgError::ParseError(
+                "Field 13D must contain date+time format with + separator".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Parse field 90D/90C: Number and Sum of Entries (MT942).
+    ///
+    /// Format: NCCCAMOUNT where:
+    /// - N: Number of entries (1-5 digits)
+    /// - CCC: Currency code (3 letters)
+    /// - AMOUNT: Total amount with comma decimal separator
+    pub fn parse_field_90(&mut self) -> Result<(), PaymsgError> {
+        let value = self.value.trim();
+
+        if value.len() < 4 {
+            return Err(PaymsgError::ParseError(format!(
+                "Field {} too short: expected at least 4 chars, got {}",
+                self.tag,
+                value.len()
+            )));
+        }
+
+        // Find where the currency code starts (first letter after digits)
+        let mut currency_start = 0;
+        for (i, ch) in value.chars().enumerate() {
+            if ch.is_ascii_alphabetic() {
+                currency_start = i;
+                break;
+            }
+        }
+
+        if currency_start == 0 {
+            return Err(PaymsgError::ParseError(format!(
+                "Field {}: missing currency code",
+                self.tag
+            )));
+        }
+
+        // Extract number of entries
+        let num_entries = &value[..currency_start];
+        self.subfields
+            .insert("number_of_entries".to_string(), num_entries.to_string());
+
+        // Extract currency (3 letters)
+        if currency_start + 3 > value.len() {
+            return Err(PaymsgError::ParseError(format!(
+                "Field {}: insufficient length for currency code",
+                self.tag
+            )));
+        }
+        let currency_str = &value[currency_start..currency_start + 3];
+        self.subfields
+            .insert("currency".to_string(), currency_str.to_string());
+
+        // Extract amount (rest of the string)
+        let amount_str = &value[currency_start + 3..];
+        self.subfields
+            .insert("amount".to_string(), amount_str.to_string());
+
+        Ok(())
+    }
+
     /// Parse subfields based on the field tag.
     ///
     /// This automatically detects compound fields and extracts subfields.
@@ -248,6 +664,15 @@ impl MtField {
             "52A" | "56A" | "57A" | "58A" => self.parse_field_institution_a(),
             "70" => self.parse_field_70(),
             "72" => self.parse_field_72(),
+            // MT940/MT942 specific fields
+            "25P" => self.parse_field_25p(),
+            "28C" => self.parse_field_28c(),
+            "60F" | "60M" | "62F" | "62M" | "64" | "65" => self.parse_balance_field(),
+            "61" => self.parse_field_61(),
+            "86" => self.parse_field_86(),
+            "34F" => self.parse_field_34f(),
+            "13D" => self.parse_field_13d(),
+            "90D" | "90C" => self.parse_field_90(),
             _ => Ok(()), // No special parsing for other fields
         }
     }
@@ -592,5 +1017,267 @@ DUPONT TRADING SARL
         assert_eq!(fields[1].value, "HOLD");
         assert_eq!(fields[2].tag, "23E");
         assert_eq!(fields[2].value, "INTC");
+    }
+
+    // MT940/MT942 specific field tests
+
+    #[test]
+    fn test_parse_field_25p() {
+        let mut field = MtField::new("25P", "BNPAFRPP/FR7630006000011234567890189");
+        field.parse_field_25p().unwrap();
+
+        assert_eq!(field.subfields.get("bic").unwrap(), "BNPAFRPP");
+        assert_eq!(
+            field.subfields.get("account").unwrap(),
+            "FR7630006000011234567890189"
+        );
+    }
+
+    #[test]
+    fn test_parse_field_28c() {
+        let mut field = MtField::new("28C", "235/1");
+        field.parse_field_28c().unwrap();
+
+        assert_eq!(field.subfields.get("statement_number").unwrap(), "235");
+        assert_eq!(field.subfields.get("sequence_number").unwrap(), "1");
+
+        // Test without sequence number
+        let mut field2 = MtField::new("28C", "127");
+        field2.parse_field_28c().unwrap();
+
+        assert_eq!(field2.subfields.get("statement_number").unwrap(), "127");
+        assert!(!field2.subfields.contains_key("sequence_number"));
+    }
+
+    #[test]
+    fn test_parse_balance_field_60f() {
+        let mut field = MtField::new("60F", "C231114EUR50000,00");
+        field.parse_balance_field().unwrap();
+
+        assert_eq!(field.subfields.get("dc_mark").unwrap(), "C");
+        assert_eq!(field.subfields.get("date").unwrap(), "231114");
+        assert_eq!(field.subfields.get("currency").unwrap(), "EUR");
+        assert_eq!(field.subfields.get("amount").unwrap(), "50000,00");
+    }
+
+    #[test]
+    fn test_parse_balance_field_62f_debit() {
+        let mut field = MtField::new("62F", "D231115EUR97000,00");
+        field.parse_balance_field().unwrap();
+
+        assert_eq!(field.subfields.get("dc_mark").unwrap(), "D");
+        assert_eq!(field.subfields.get("date").unwrap(), "231115");
+        assert_eq!(field.subfields.get("currency").unwrap(), "EUR");
+        assert_eq!(field.subfields.get("amount").unwrap(), "97000,00");
+    }
+
+    #[test]
+    fn test_parse_field_61_simple() {
+        // No entry date in this format: value date immediately followed by D/C mark
+        let mut field = MtField::new("61", "231115C15000,00NTRF020231115001//BANK REF 001");
+        field.parse_field_61().unwrap();
+
+        assert_eq!(field.subfields.get("value_date").unwrap(), "231115");
+        assert!(!field.subfields.contains_key("entry_date")); // No entry date
+        assert_eq!(field.subfields.get("dc_mark").unwrap(), "C");
+        assert_eq!(field.subfields.get("amount").unwrap(), "15000,00");
+    }
+
+    #[test]
+    fn test_parse_field_61_with_entry_date() {
+        // Value date: 231115, Entry date: 1115, D/C: C, Amount: 15000,00
+        let mut field = MtField::new("61", "2311151115C15000,00NTRF020231115001//BANK REF 001");
+        field.parse_field_61().unwrap();
+
+        assert_eq!(field.subfields.get("value_date").unwrap(), "231115");
+        assert_eq!(field.subfields.get("entry_date").unwrap(), "1115");
+        assert_eq!(field.subfields.get("dc_mark").unwrap(), "C");
+        assert_eq!(field.subfields.get("amount").unwrap(), "15000,00");
+        assert_eq!(field.subfields.get("transaction_type").unwrap(), "NTRF");
+        assert_eq!(
+            field.subfields.get("customer_reference").unwrap(),
+            "020231115001"
+        );
+        assert_eq!(field.subfields.get("bank_reference").unwrap(), "BANK REF 001");
+    }
+
+    #[test]
+    fn test_parse_field_61_without_entry_date() {
+        // No entry date (D/C immediately follows value date)
+        let mut field = MtField::new("61", "231115C15000,00NTRF020231115001//BANK REF 001");
+        field.parse_field_61().unwrap();
+
+        assert_eq!(field.subfields.get("value_date").unwrap(), "231115");
+        assert!(!field.subfields.contains_key("entry_date"));
+        assert_eq!(field.subfields.get("dc_mark").unwrap(), "C");
+        assert_eq!(field.subfields.get("amount").unwrap(), "15000,00");
+    }
+
+    #[test]
+    fn test_parse_field_61_debit() {
+        let mut field = MtField::new("61", "231115D8000,00NDDT024115DEB001//BANK REF 005");
+        field.parse_field_61().unwrap();
+
+        assert_eq!(field.subfields.get("value_date").unwrap(), "231115");
+        assert_eq!(field.subfields.get("dc_mark").unwrap(), "D");
+        assert_eq!(field.subfields.get("amount").unwrap(), "8000,00");
+        assert_eq!(field.subfields.get("transaction_type").unwrap(), "NDDT");
+        assert_eq!(field.subfields.get("customer_reference").unwrap(), "024115DEB001");
+        assert_eq!(field.subfields.get("bank_reference").unwrap(), "BANK REF 005");
+    }
+
+    #[test]
+    fn test_parse_field_61_with_supplementary() {
+        // Test without entry date (D/C immediately follows value date)
+        let value = "231115D2500,00NCHK022115CHK123//BANK REF 003\nPresented cheque";
+        let mut field = MtField::new("61", value);
+        field.parse_field_61().unwrap();
+
+        assert_eq!(field.subfields.get("value_date").unwrap(), "231115");
+        assert!(!field.subfields.contains_key("entry_date"));
+        assert_eq!(field.subfields.get("dc_mark").unwrap(), "D");
+        assert_eq!(field.subfields.get("amount").unwrap(), "2500,00");
+        assert_eq!(
+            field.subfields.get("supplementary_details").unwrap(),
+            "Presented cheque"
+        );
+    }
+
+    #[test]
+    fn test_parse_field_61_reversal() {
+        let mut field = MtField::new("61", "231115RC5000,00NSTD021115STDO001");
+        field.parse_field_61().unwrap();
+
+        assert_eq!(field.subfields.get("value_date").unwrap(), "231115");
+        assert_eq!(field.subfields.get("dc_mark").unwrap(), "RC");
+        assert_eq!(field.subfields.get("amount").unwrap(), "5000,00");
+    }
+
+    #[test]
+    fn test_parse_field_86_unstructured() {
+        let value = "Payment from Customer A for Invoice 12345";
+        let mut field = MtField::new("86", value);
+        field.parse_field_86().unwrap();
+
+        assert_eq!(field.subfields.get("text").unwrap(), value);
+    }
+
+    #[test]
+    fn test_parse_field_86_structured() {
+        let value = "?20Payment from Customer A\n?32ACME CORPORATION\n?60DE89370400440532013000";
+        let mut field = MtField::new("86", value);
+        field.parse_field_86().unwrap();
+
+        assert_eq!(field.subfields.get("text").unwrap(), value);
+        assert_eq!(
+            field.subfields.get("code_20").unwrap(),
+            "Payment from Customer A"
+        );
+        assert_eq!(field.subfields.get("code_32").unwrap(), "ACME CORPORATION");
+        assert_eq!(
+            field.subfields.get("code_60").unwrap(),
+            "DE89370400440532013000"
+        );
+    }
+
+    #[test]
+    fn test_parse_field_86_structured_multiline() {
+        let value = "?20Incoming Wire Transfer\n?32Business Partner Corp\n?60IT60X0542811101000000123456";
+        let mut field = MtField::new("86", value);
+        field.parse_field_86().unwrap();
+
+        assert_eq!(
+            field.subfields.get("code_20").unwrap(),
+            "Incoming Wire Transfer"
+        );
+        assert_eq!(
+            field.subfields.get("code_32").unwrap(),
+            "Business Partner Corp"
+        );
+        assert_eq!(
+            field.subfields.get("code_60").unwrap(),
+            "IT60X0542811101000000123456"
+        );
+    }
+
+    #[test]
+    fn test_parse_field_34f() {
+        let mut field = MtField::new("34F", "EUR10000,00");
+        field.parse_field_34f().unwrap();
+
+        assert_eq!(field.subfields.get("currency").unwrap(), "EUR");
+        assert_eq!(field.subfields.get("amount").unwrap(), "10000,00");
+    }
+
+    #[test]
+    fn test_parse_field_13d() {
+        let mut field = MtField::new("13D", "231115+1430");
+        field.parse_field_13d().unwrap();
+
+        assert_eq!(field.subfields.get("date").unwrap(), "231115");
+        assert_eq!(field.subfields.get("time").unwrap(), "1430");
+    }
+
+    #[test]
+    fn test_parse_field_90d() {
+        let mut field = MtField::new("90D", "8EUR45000,00");
+        field.parse_field_90().unwrap();
+
+        assert_eq!(field.subfields.get("number_of_entries").unwrap(), "8");
+        assert_eq!(field.subfields.get("currency").unwrap(), "EUR");
+        assert_eq!(field.subfields.get("amount").unwrap(), "45000,00");
+    }
+
+    #[test]
+    fn test_parse_field_90c() {
+        let mut field = MtField::new("90C", "12EUR78000,00");
+        field.parse_field_90().unwrap();
+
+        assert_eq!(field.subfields.get("number_of_entries").unwrap(), "12");
+        assert_eq!(field.subfields.get("currency").unwrap(), "EUR");
+        assert_eq!(field.subfields.get("amount").unwrap(), "78000,00");
+    }
+
+    #[test]
+    fn test_parse_mt940_minimal() {
+        let content = ":20:STMT20231115001
+:25:DE89370400440532013000
+:28C:235/1
+:60F:C231114EUR10000,00
+:62F:C231115EUR10000,00";
+
+        let fields = parse_block4_fields(content).unwrap();
+
+        assert_eq!(fields.len(), 5);
+
+        let field_20 = fields.iter().find(|f| f.tag == "20").unwrap();
+        assert_eq!(field_20.value, "STMT20231115001");
+
+        let field_28c = fields.iter().find(|f| f.tag == "28C").unwrap();
+        assert_eq!(field_28c.subfields.get("statement_number").unwrap(), "235");
+        assert_eq!(field_28c.subfields.get("sequence_number").unwrap(), "1");
+
+        let field_60f = fields.iter().find(|f| f.tag == "60F").unwrap();
+        assert_eq!(field_60f.subfields.get("dc_mark").unwrap(), "C");
+        assert_eq!(field_60f.subfields.get("currency").unwrap(), "EUR");
+        assert_eq!(field_60f.subfields.get("amount").unwrap(), "10000,00");
+    }
+
+    #[test]
+    fn test_parse_mt942_minimal() {
+        let content = ":20:INTR20231115001
+:25:DE89370400440532013000
+:28C:1/1";
+
+        let fields = parse_block4_fields(content).unwrap();
+
+        assert_eq!(fields.len(), 3);
+
+        let field_20 = fields.iter().find(|f| f.tag == "20").unwrap();
+        assert_eq!(field_20.value, "INTR20231115001");
+
+        let field_28c = fields.iter().find(|f| f.tag == "28C").unwrap();
+        assert_eq!(field_28c.subfields.get("statement_number").unwrap(), "1");
+        assert_eq!(field_28c.subfields.get("sequence_number").unwrap(), "1");
     }
 }
