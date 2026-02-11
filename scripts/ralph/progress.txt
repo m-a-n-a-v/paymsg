@@ -1150,3 +1150,59 @@ All round-trip tests validate: parse XML → serialize → re-parse → compare 
   * When validating Option fields that aren't truly optional but present as struct fields, use .as_ref().map_or(true, |x| condition) pattern
   * Test XML messages need complete mandatory structure even for negative tests
 ---
+
+## 2026-02-10 - PAYMSG-011 ✅ COMPLETE
+
+**Status**: Fully implemented and passing all quality checks
+
+### What was implemented:
+1. **Core validation framework** (types.rs - 205 lines):
+   - ValidationResult: Container for validation issues with filtering methods
+   - ValidationIssue: Individual issue with severity, field_path, message, suggestion
+   - Validator trait: Generic trait for implementing validators
+   - 3 unit tests validating core behavior
+
+2. **SWIFT character set validator** (swift_charset.rs - 275 lines):
+   - SwiftCharsets: Loads X, Y, Z character sets from JSON
+   - Character-level validation with Unicode codepoint reporting
+   - 3 unit tests including real spec file loading
+
+3. **MT schema validator** (mt_schema.rs - 257 lines):
+   - Validates MT103, MT202, MT940, MT942 against specs
+   - Mandatory field, max length, format pattern validation
+   - SWIFT charset integration
+   - 2 unit tests
+
+4. **MX schema validator** (mx_schema.rs - 320 lines):
+   - Validates pacs.008, pacs.009, camt.052, camt.053
+   - Checks mandatory elements, amounts, currency codes, party info
+   - 1 unit test
+
+5. **Integration tests** (14 tests total):
+   - 6 MT validation tests with real MT files
+   - 8 MX validation tests with real XML files
+
+### Files created:
+- crates/paymsg-validate/src/types.rs
+- crates/paymsg-validate/src/swift_charset.rs
+- crates/paymsg-validate/src/mt_schema.rs
+- crates/paymsg-validate/src/mx_schema.rs
+- crates/paymsg-validate/tests/mt_validation_tests.rs
+- crates/paymsg-validate/tests/mx_validation_tests.rs
+
+### Quality checks passed:
+- ✅ cargo build --workspace
+- ✅ cargo test --workspace (217 tests pass)
+- ✅ cargo clippy --workspace -- -D warnings
+- ✅ Committed with proper message format
+- ✅ Updated PRD: PAYMSG-011 passes = true
+
+### Learnings for future iterations:
+- **Validator trait pattern**: Generic trait enables polymorphic validation
+- **Field path convention**: Use "Block4.Field20" for MT, "GrpHdr.MsgId" for MX
+- **MX field naming**: Use full snake_case (interbank_settlement_amount, not intr_bk_sttlm_amt)
+- **Optional validation**: Use map_or to safely check Option<String> without unwrap
+- **Error messages**: Always include actionable suggestions
+- **SWIFT charsets**: Load from specs, validate character by character
+
+---
