@@ -167,3 +167,82 @@ Started: 2026-02-10
 
 ---
 
+## 2026-02-10 - PAYMSG-003 ✅ COMPLETE
+
+**Status**: Fully implemented and passing all quality checks
+
+### What was implemented:
+1. Created comprehensive MT message block structures (blocks.rs):
+   - **BasicHeader (Block 1)**: Parses application_id (F/A), service_id (01/21), logical_terminal_address (12 chars), session_number (4 digits), sequence_number (6 digits)
+   - **ApplicationHeader (Block 2)**: Handles both Input and Output formats
+     - Input: direction, message_type (3 chars), destination BIC (12 chars), priority (N/U/S)
+     - Output: extracts sender BIC from MIR structure
+   - **UserHeader (Block 3)**: Optional tag-value pairs stored in HashMap (108:MUR, 121:UETR, 119:STP, etc.)
+   - **TextBlock (Block 4)**: Raw message body content (field parsing deferred to PAYMSG-004)
+   - **Trailer (Block 5)**: Optional tags (CHK, TNG, PDE, etc.)
+   - All blocks derive Debug, Clone, PartialEq, Serialize, Deserialize
+
+2. Implemented MT message parser (parser.rs):
+   - **MtMessage struct**: Container for all 5 blocks with optional block3 and block5
+   - **Block extraction logic**: 
+     - Scans for {1:, {2:, {3:, {4:, {5: patterns sequentially
+     - Handles nested braces in blocks 1, 2, 3, 5 with depth tracking
+     - Special handling for Block 4 which ends with -} instead of }
+     - Properly handles optional blocks 3 and 5
+   - **Line ending normalization**: Converts \r\n to \n for consistent parsing
+   - **Block-specific parsers**:
+     - Block 1: Fixed-length field extraction (25 chars total)
+     - Block 2: Separate logic for Input (16 chars) vs Output (46+ chars)
+     - Block 3/5: Regex-based tag-value pair extraction: \{([^:]+):([^}]*)\}
+
+3. Comprehensive test coverage (24 tests total):
+   - **Unit tests in parser.rs** (16 tests):
+     - Individual block parser tests (parse_block1 through parse_block5)
+     - MtMessage parsing tests for MT103, MT202, MT940 with/without optional blocks
+     - Error handling test for missing mandatory blocks
+   - **Integration tests** (8 tests in tests/integration_tests.rs):
+     - Parses real MT files from ../paymsg-specs/testdata/mt/
+     - Tests all 4 message types: MT103, MT202, MT940, MT942
+     - Tests minimal_valid and full_valid variants
+     - Tests handling of different line endings (\n vs \r\n)
+     - Multiple file tests to ensure robustness
+
+### Files changed:
+- crates/paymsg-mt/src/blocks.rs (NEW - 186 lines)
+- crates/paymsg-mt/src/parser.rs (NEW - 523 lines)
+- crates/paymsg-mt/src/lib.rs (updated to export new modules)
+- crates/paymsg-mt/tests/integration_tests.rs (NEW - 207 lines)
+
+### Quality checks passed:
+- ✅ `cargo build --workspace` - All crates compile successfully
+- ✅ `cargo test --workspace` - 96 tests pass (88 unit + 8 integration)
+  - 72 tests from paymsg-core (PAYMSG-001, PAYMSG-002)
+  - 16 tests from paymsg-mt unit tests
+  - 8 tests from paymsg-mt integration tests
+- ✅ `cargo clippy --workspace -- -D warnings` - No warnings
+- ✅ Committed with proper message format
+- ✅ Updated PRD: PAYMSG-003 passes = true
+
+### Learnings for future iterations:
+- **Block extraction strategy**: Sequential scanning for {N: patterns is more reliable than regex for MT messages because:
+  - Blocks can have nested braces (especially in Block 3 and 5)
+  - Block 4 has a special terminator (-}) that differs from other blocks
+  - Need to track brace depth to handle nested structures correctly
+- **Optional blocks**: MT messages don't always have blocks 3 and 5, so the parser must:
+  - Scan for each block individually rather than assuming sequential presence
+  - Use Option<T> for block3 and block5 in MtMessage struct
+  - Validate mandatory blocks (1, 2, 4) are present
+- **Block 2 formats**: Input and Output have completely different structures:
+  - Input: I + msg_type(3) + dest_bic(12) + priority(1) = 17 chars minimum
+  - Output: O + msg_type(3) + time(4) + MIR(28) + date(6) + time(4) + priority(1) = 47 chars
+  - Extract BIC from different positions depending on format
+- **Integration test path resolution**: Same pattern as PAYMSG-002:
+  - Use CARGO_MANIFEST_DIR to navigate from crate dir up to workspace root
+  - Then traverse to sibling ../paymsg-specs directory
+  - Works correctly during `cargo test` from any directory
+- **Line ending normalization**: Always normalize \r\n to \n at the start of parsing to simplify all subsequent logic
+- **Tag-value parsing**: Regex pattern `\{([^:]+):([^}]*)\}` works well for both Block 3 and Block 5
+- **Error messages**: Use PaymsgError::ParseError(String) tuple variant, not struct variant with message/location fields
+
+---
+

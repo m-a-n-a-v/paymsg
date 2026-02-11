@@ -20,7 +20,7 @@
       "title": "MT block parser — parse 5-block structure",
       "description": "In paymsg-mt, implement MT message block parsing. Define MtMessage struct with block1 (BasicHeader), block2 (ApplicationHeader), block3 (UserHeader, optional), block4 (TextBlock), block5 (Trailer, optional). Parse Block 1 fields: application_id, service_id, logical_terminal_address (BIC + LT code + branch). Parse Block 2: distinguish Input (I) vs Output (O) format, extract message_type, destination/sender BIC, priority. Parse Block 3: extract tag-value pairs (108:MUR, 121:UETR, 119:STP, etc.). Parse Block 5: extract trailer tags (CHK, TNG, PDE, etc.). Handle both \\r\\n and \\n line endings. Write tests using sample MT messages from ../paymsg-specs/testdata/mt/.",
       "priority": 3,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PAYMSG-004",
