@@ -1333,3 +1333,133 @@ All round-trip tests validate: parse XML → serialize → re-parse → compare 
   - Cache parsed expressions for performance
 
 ---
+
+## 2026-02-10 - PAYMSG-013 ✅ COMPLETE
+
+**Status**: Fully implemented and passing all quality checks
+
+### What was implemented:
+1. Created comprehensive reference data validation module (reference_data.rs - 470 lines):
+   - **ReferenceDataValidator**: Main validator for cross-field and reference data validation
+   - **Currency validation**:
+     - Validates currency code exists in ISO 4217 (currencies.json)
+     - Checks currency is active
+     - Validates decimal places match currency spec (USD=2, JPY=0, BHD=3)
+     - Error for too many decimals, info for too few
+   - **BIC validation**:
+     - Validates BIC structure (8 or 11 chars)
+     - Checks institution (4 alpha), country (2 alpha), location (2 alphanum), branch (3 alphanum)
+     - Verifies country code exists in ISO 3166
+   - **IBAN validation**:
+     - Validates IBAN check digits using Mod-97 algorithm
+     - Checks IBAN length matches country specification
+     - Validates BBAN format against country regex pattern
+     - Leverages existing Iban::from_str() for check digit validation
+   - **Amount consistency validation**:
+     - Checks if IntrBkSttlmAmt and InstdAmt have different currencies
+     - Requires XchgRate field when currencies differ
+   - **Date validation**:
+     - Warns if settlement date is in the past
+     - Warns if settlement date is > 1 year in future
+   - **Cross-field validation for pacs.008**:
+     - Validates all currency codes in message (settlement, instructed, total, charges)
+     - Validates all BICs (instructing/instructed agents, debtor/creditor agents)
+     - Validates all IBANs (debtor/creditor accounts)
+     - Validates settlement dates
+   - Implements Validator<pacs008::Document> trait
+
+2. Comprehensive unit tests (10 tests in reference_data.rs):
+   - test_validate_currency_code_valid, test_validate_currency_code_invalid
+   - test_validate_currency_decimal_places_correct, test_validate_currency_decimal_places_too_many
+   - test_validate_bic_valid, test_validate_bic_invalid_format
+   - test_validate_iban_valid, test_validate_iban_invalid_check_digits
+   - test_validate_settlement_date_future, test_validate_settlement_date_past
+
+3. Integration tests (8 tests in reference_data_tests.rs):
+   - test_validate_valid_pacs008: Validates minimal_valid.xml has no errors
+   - test_validate_invalid_currency: Tests currency code "XXX" → REF-002 error
+   - test_validate_invalid_decimal_places: Tests USD with 3 decimals → REF-003 error
+   - test_validate_missing_exchange_rate: Tests USD/EUR mismatch without XchgRate → REF-013 error
+   - test_validate_invalid_bic: Tests "INVALID" BIC → REF-005 error
+   - test_validate_invalid_iban: Tests bad check digits → REF-007 error
+   - test_validate_past_settlement_date: Tests 2020-01-01 date → REF-011 warning
+   - test_validate_full_valid_pacs008: Validates full_valid.xml has no errors
+
+### Files changed:
+- crates/paymsg-validate/src/reference_data.rs (NEW - 470 lines)
+- crates/paymsg-validate/src/lib.rs (added reference_data module export)
+- crates/paymsg-validate/tests/reference_data_tests.rs (NEW - 470 lines)
+- scripts/ralph/prd.json (updated PAYMSG-013 passes = true)
+
+### Quality checks passed:
+- ✅ `cargo build --workspace` - All crates compile with no warnings
+- ✅ `cargo test --workspace` - 225 tests pass (217 from previous + 8 new integration tests)
+  - 72 tests from paymsg-core
+  - 24 tests from paymsg-validate (14 unit + 10 reference_data unit)
+  - 8 tests from paymsg-validate integration (NEW)
+  - 91 tests from paymsg-mt
+  - 30 tests from paymsg-iso20022
+  - 9 doctests
+- ✅ `cargo clippy --workspace -- -D warnings` - No warnings
+- ✅ Committed with proper message format
+- ✅ Updated PRD: PAYMSG-013 passes = true
+
+### Learnings for future iterations:
+- **ValidationIssue field_path**: Must be Option<String>, not String
+  - Use Some(field_path.to_string()) when creating issues
+  - Pattern: field_path: Some(format!("{}/Field", prefix))
+
+- **ValidationResult construction**: No from_issues() method
+  - Create directly with ValidationResult { issues }
+  - NOT ValidationResult::new(issues) - new() takes no arguments
+
+- **pacs.008 mandatory vs optional fields**:
+  - debtor_account, creditor_account: NOT Option types (mandatory)
+  - debtor_agent, creditor_agent: NOT Option types (mandatory)
+  - instructing_agent, instructed_agent in GroupHeader: NOT Option types (mandatory)
+  - financial_institution_id in BranchAndFinancialInstitutionIdentification: NOT Option type
+  - bic in FinancialInstitutionIdentification: IS Option<String> (can be absent)
+  - iban in AccountIdentification: IS Option<String> (can use "other" instead)
+
+- **Iban structure**: Has public field `country` (not a method)
+  - Access via iban_parsed.country, not iban_parsed.country_code()
+
+- **IbanFormat structure**: `example` is String, not Option<String>
+  - Can use directly in format!() without unwrapping
+
+- **SpecLoader signature**: Takes Option<PathBuf>, not Option<&Path>
+  - Use Some(path_buf) not Some(&path_buf) or Some(path.as_path())
+  - Pass PathBuf directly from get_specs_path()
+
+- **Path resolution in tests**: Must go up 3 levels from crate to workspace parent
+  - Pattern: crate_dir.parent().parent().parent().join("paymsg-specs")
+  - crates/paymsg-validate → crates → paymsg → parent of paymsg → paymsg-specs
+
+- **Test XML structure**: pacs.008 requires InstgAgt and InstdAgt in GrpHdr
+  - All inline test XML needs these mandatory fields
+  - Otherwise parse fails with "missing field `InstgAgt`"
+
+- **Validation error ID conventions**: Use prefixed IDs for reference data
+  - REF-001 through REF-013 for reference data validators
+  - Makes it easy to distinguish from schema (SCH-) and business rule (BIZ-) errors
+
+- **Severity levels**: Use appropriately
+  - Error: Invalid data that violates spec (bad currency code, invalid IBAN check digits)
+  - Warning: Suspicious but potentially valid (past settlement date, > 1 year future)
+  - Info: Minor issues or suggestions (fewer decimals than typical for currency)
+
+- **Validator trait pattern**: Implement for specific message types
+  - Validator<pacs008::Document> for pacs.008 messages
+  - Future: Validator<pacs009::Document>, Validator<camt053::Document>, etc.
+
+- **Test organization**: Both unit tests and integration tests
+  - Unit tests in module for quick iteration on individual validators
+  - Integration tests in separate file for full message validation
+  - Use real test data files from ../paymsg-specs/testdata/ when available
+  - Create inline XML for specific error scenarios
+
+- **Clippy fixes**:
+  - Remove unnecessary casts: format_spec.length (usize) doesn't need "as usize"
+  - Unused imports caught in tests: remove pacs008 and Severity when not used
+
+---

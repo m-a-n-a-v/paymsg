@@ -90,7 +90,7 @@
       "title": "Validation — cross-field and reference data validation",
       "description": "In paymsg-validate, implement cross-field and reference data validators. Currency validation: check currency code exists in currencies.json, verify decimal places match currency spec. BIC validation: check structure (4 alpha + 2 alpha + 2 alphanum + optional 3 alphanum), verify country code exists. IBAN validation: verify length matches country spec from iban_formats.json, validate check digits with Mod-97 algorithm, validate BBAN format regex. Amount consistency: if both IntrBkSttlmAmt and InstdAmt present with different currencies, XchgRate should exist. Date validation: settlement date not in the past, reasonable future range. Test with both valid messages and the invalid_* test messages.",
       "priority": 13,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PAYMSG-014",
