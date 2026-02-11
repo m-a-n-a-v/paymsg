@@ -9,11 +9,16 @@
 use paymsg_core::PaymsgError;
 
 pub mod blocks;
+pub mod fields;
 pub mod parser;
 
 // Re-export main types
 pub use blocks::{
     ApplicationHeader, BasicHeader, Direction, TextBlock, Trailer, UserHeader,
+};
+pub use fields::{
+    load_all_mt_specs, load_mt_spec, parse_block4_fields, parse_mt_amount, parse_mt_date_yymmdd,
+    MtField, MtFieldSpec, MtMessageSpec, MtSubfieldSpec,
 };
 pub use parser::MtMessage;
 

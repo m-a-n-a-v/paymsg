@@ -80,11 +80,19 @@ pub struct UserHeader {
 ///
 /// Format: `{4:\n:20:REF\n:32A:...\n-}`
 /// Contains the actual message fields in tag:value format.
-/// This block stores the raw content; field parsing happens separately.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TextBlock {
     /// Raw text content of block 4 (without the {4: prefix and -} suffix)
     pub content: String,
+}
+
+impl TextBlock {
+    /// Parse fields from the text block content.
+    ///
+    /// Returns a vector of parsed fields with tag, value, and extracted subfields.
+    pub fn parse_fields(&self) -> Result<Vec<crate::fields::MtField>, crate::PaymsgError> {
+        crate::fields::parse_block4_fields(&self.content)
+    }
 }
 
 /// Block 5: Trailer (optional)

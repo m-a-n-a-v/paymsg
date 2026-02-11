@@ -512,6 +512,7 @@ version = "0.1.0"
 dependencies = [
  "paymsg-core",
  "regex",
+ "rust_decimal",
  "serde",
  "serde_json",
  "thiserror",
