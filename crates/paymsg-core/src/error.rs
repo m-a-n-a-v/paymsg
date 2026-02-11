@@ -41,6 +41,10 @@ pub enum PaymsgError {
     #[error("serialization error: {0}")]
     SerializationError(String),
 
+    /// Translation error
+    #[error("translation error: {0}")]
+    TranslationError(String),
+
     /// IO error
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),

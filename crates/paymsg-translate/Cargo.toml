@@ -7,6 +7,10 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[features]
+# Incomplete features under development - requires extending pacs008 structures
+incomplete = []
+
 [dependencies]
 paymsg-core = { workspace = true }
 paymsg-mt = { workspace = true }
@@ -15,3 +19,6 @@ paymsg-validate = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+rust_decimal = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }

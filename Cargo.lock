@@ -535,13 +535,16 @@ dependencies = [
 name = "paymsg-translate"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "paymsg-core",
  "paymsg-iso20022",
  "paymsg-mt",
  "paymsg-validate",
+ "rust_decimal",
  "serde",
  "serde_json",
  "thiserror",
+ "uuid",
 ]
 
 [[package]]
