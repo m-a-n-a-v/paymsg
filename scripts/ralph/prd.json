@@ -153,7 +153,7 @@
       "title": "CLI — info and completions subcommands",
       "description": "In paymsg-cli, implement utility subcommands. 'info' subcommand: show information about a message without full parsing — detect type, show key fields (reference, amount, date, sender/receiver). 'completions' subcommand: generate shell completions for bash, zsh, fish using clap_complete. Add --version flag showing version from Cargo.toml. Add top-level --verbose flag for debug logging using env_logger. Write a comprehensive --help with examples for each subcommand. Test the info subcommand with various message types.",
       "priority": 22,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PAYMSG-023",

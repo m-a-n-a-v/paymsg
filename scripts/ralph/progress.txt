@@ -2098,3 +2098,80 @@ The pacs.008 module (PAYMSG-007) was implemented with **simplified structures** 
 - **Validation after translation**: Load specs, create validators, validate translated content string (not the struct)
 
 ---
+
+## 2026-02-11 - PAYMSG-022 ✅ COMPLETE
+
+**Status**: Fully implemented and passing all quality checks
+
+### What was implemented:
+
+1. **Info subcommand** (crates/paymsg-cli/src/commands/info.rs):
+   - Displays key message information without full parsing
+   - Extracts message format (MT or MX) automatically
+   - Extracts message type (MT103, pacs.008, etc.)
+   - Extracts sender/receiver BICs
+   - Extracts reference/message ID
+   - Extracts amount and currency
+   - Extracts value date or creation date
+   - Outputs structured JSON for easy parsing
+   - Handles both file input and stdin
+   - MT parsing: extracts from Block 1 (sender), Block 2 (receiver, type), Block 4 (fields)
+   - MX parsing: extracts from XML tags using simple string matching (fast, no full XML parse)
+   - Special handling for MT940/MT942 (opening balance from :60F:, account from :25:)
+
+2. **Completions subcommand** (crates/paymsg-cli/src/commands/completions.rs):
+   - Generates shell completions for bash, zsh, fish
+   - Uses clap_complete::generate() with proper Command handling
+   - Outputs completions to stdout for redirection
+   - Simple 30-line implementation
+
+3. **Enhanced CLI help text** (crates/paymsg-cli/src/main.rs):
+   - Added comprehensive after_help examples for main CLI
+   - Added after_help examples for each subcommand:
+     - Parse: file input, stdin, format flag
+     - Validate: severity filter, rules selection
+     - Translate: auto-detect, explicit formats, validation
+     - Info: file input, stdin
+     - Completions: bash, zsh examples
+   - Improved CLI description
+   - Already had --verbose and --version flags from previous iterations
+
+4. **Integration tests** (crates/paymsg-cli/tests/info_tests.rs):
+   - test_info_mt103_from_file: validates MT103 info extraction
+   - test_info_pacs008_from_file: validates pacs.008 info extraction
+   - test_info_mt940_from_stdin: validates stdin input and MT940 parsing
+   - test_info_invalid_format: validates error handling
+   - test_info_nonexistent_file: validates file not found error
+   - test_info_help: validates help text displays correctly
+   - Unit tests in info.rs module for core parsing logic
+
+### Files changed:
+- crates/paymsg-cli/src/commands/info.rs (NEW - 358 lines)
+- crates/paymsg-cli/src/commands/completions.rs (NEW - 30 lines)
+- crates/paymsg-cli/tests/info_tests.rs (NEW - 157 lines)
+- crates/paymsg-cli/src/commands/mod.rs (added completions and info exports)
+- crates/paymsg-cli/src/main.rs (added Info and Completions commands, enhanced help text)
+- crates/paymsg-cli/Cargo.toml (added tempfile dev-dependency)
+- Cargo.lock (updated dependencies)
+
+### Quality checks passed:
+- ✅ `cargo build --workspace` - All crates compile successfully
+- ✅ `cargo test --workspace` - All 291 tests pass (6 new info tests + unit tests)
+- ✅ `cargo clippy --workspace -- -D warnings` - No warnings
+- ✅ Fixed clippy warnings: removed unused imports, removed unnecessary mut
+- ✅ Committed changes with proper message format
+- ✅ Updated PRD: PAYMSG-022 passes = true
+
+### Learnings for future iterations:
+- **Fast info extraction**: Don't parse full message structure for info display - use simple string operations
+- **Block 4 parsing**: MT block 4 starts with `{4:` (3 chars), content may have newline immediately after
+- **MT field parsing**: Search for `{4:` and `-}` delimiters, extract content in between
+- **MX extraction**: Simple find/substring operations faster than full XML parse for info display
+- **MT940 specifics**: Opening balance in :60F: field (format: D/C + YYMMDD + CCC + amount)
+- **Completions command signature**: Takes `&mut Command` parameter for generating completions
+- **CommandFactory trait**: Need to import `clap::CommandFactory` and call `Cli::command()` to get mutable Command
+- **Integration test pattern**: Use tempfile crate for creating temporary test files
+- **Help text formatting**: Use `after_help` attribute on commands for examples section
+- **Amount decimal conversion**: MT uses comma (1000,50), info extracts and converts to period (1000.50)
+
+---
