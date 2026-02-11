@@ -31,6 +31,10 @@ pub mod pacs009_to_mt202;
 pub mod mt940_to_camt053;
 pub mod camt053_to_mt940;
 
+// MT942 ↔ camt.052 translators
+pub mod mt942_to_camt052;
+pub mod camt052_to_mt942;
+
 // Re-exports
 pub use types::{
     AmountConverter, BicNormalizer, ChargeBearerConverter, DataLossCategory, DataLossWarning,
@@ -51,3 +55,7 @@ pub use pacs009_to_mt202::translate as translate_pacs009_to_mt202;
 // MT940 ↔ camt.053 translation functions
 pub use mt940_to_camt053::translate as translate_mt940_to_camt053;
 pub use camt053_to_mt940::translate as translate_camt053_to_mt940;
+
+// MT942 ↔ camt.052 translation functions
+pub use mt942_to_camt052::translate as translate_mt942_to_camt052;
+pub use camt052_to_mt942::translate as translate_camt052_to_mt942;
