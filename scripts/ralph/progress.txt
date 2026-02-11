@@ -1129,3 +1129,24 @@ All round-trip tests validate: parse XML → serialize → re-parse → compare 
   - Prefix with underscore if variable needed for structure but not value
 
 ---
+
+## 2026-02-10 22:30 - PAYMSG-011
+- Implemented comprehensive validation framework for MT and MX messages
+- Files changed:
+  * crates/paymsg-validate/src/types.rs - Core validation types (ValidationResult, ValidationIssue, Severity, Validator trait)
+  * crates/paymsg-validate/src/mt_schema.rs - MT schema validator with field specs loading, mandatory field checking, length/format validation
+  * crates/paymsg-validate/src/mx_schema.rs - MX schema validator for pacs.008, pacs.009, camt.052, camt.053
+  * crates/paymsg-validate/src/swift_charset.rs - SWIFT character set validation (X, Y, Z sets)
+  * crates/paymsg-validate/src/lib.rs - Public API exports
+  * crates/paymsg-validate/tests/mt_validation_tests.rs - MT validation integration tests
+  * crates/paymsg-validate/tests/mx_validation_tests.rs - MX validation integration tests
+- **Learnings for future iterations:**
+  * ISO 20022 struct fields use snake_case (e.g., message_id not msg_id, credit_transfer_transaction_information not cdt_trf_tx_inf)
+  * MtFieldSpec.max_length is usize (not Option<usize>), check > 0 instead of is_some()
+  * MtFieldSpec.description is String (not Option<String>), check is_empty() instead of is_none()
+  * When working with linter-modified files, read them again before editing
+  * pacs.008 CreditTransferTransactionInformation requires ChrgBr, DbtrAcct, and CdtrAcct as mandatory fields
+  * Block 1 in MT messages must be exactly 25 characters (F + 01 + 12-char BIC + 10-char session/sequence)
+  * When validating Option fields that aren't truly optional but present as struct fields, use .as_ref().map_or(true, |x| condition) pattern
+  * Test XML messages need complete mandatory structure even for negative tests
+---

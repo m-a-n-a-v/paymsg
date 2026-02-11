@@ -76,7 +76,7 @@
       "title": "Validation engine — schema validation framework",
       "description": "In paymsg-validate, implement the validation framework. Define ValidationResult with a list of ValidationIssue (id, severity: Error/Warning/Info, field_path, message, suggestion). Define Validator trait with validate() method. Implement schema-level validators: MtSchemaValidator (checks mandatory fields present, field lengths, format patterns from mt-specs JSON), MxSchemaValidator (checks required XML elements present, element types). Load MT field specs from ../paymsg-specs/mt-specs/ for field validation rules. Implement SWIFT charset validation (X, Y, Z sets from swift_charsets.json). Test MT103 schema validation with valid and invalid test messages.",
       "priority": 11,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PAYMSG-012",
