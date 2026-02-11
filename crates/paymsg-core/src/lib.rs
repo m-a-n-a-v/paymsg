@@ -16,6 +16,7 @@ pub mod date;
 pub mod error;
 pub mod iban;
 pub mod message_type;
+pub mod specs;
 
 // Re-export main types for convenience
 pub use amount::Amount;
@@ -25,11 +26,15 @@ pub use date::{Date, DateTime};
 pub use error::{PaymsgError, Result};
 pub use iban::Iban;
 pub use message_type::{MessageCategory, MessageType};
+pub use specs::{
+    BicSpec, CountryRegistry, CountrySpec, CurrencyRegistry, CurrencySpec, IbanFormat,
+    IbanRegistry, SpecLoader, SpecRegistries, SwiftCharset,
+};
 
 /// Prelude module for commonly used types.
 pub mod prelude {
     pub use crate::{
-        Amount, Bic, Currency, Date, DateTime, Iban, MessageCategory, MessageType, PaymsgError,
-        Result,
+        Amount, Bic, Currency, CurrencyRegistry, Date, DateTime, Iban, MessageCategory,
+        MessageType, PaymsgError, Result, SpecLoader,
     };
 }

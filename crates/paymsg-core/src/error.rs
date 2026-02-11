@@ -49,6 +49,10 @@ pub enum PaymsgError {
     #[error("JSON error: {0}")]
     JsonError(#[from] serde_json::Error),
 
+    /// Spec loading error
+    #[error("failed to load spec file {file}: {reason}")]
+    SpecLoadError { file: String, reason: String },
+
     /// Other error
     #[error("{0}")]
     Other(String),
