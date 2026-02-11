@@ -1,0 +1,17 @@
+[package]
+name = "paymsg-translate"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+paymsg-core = { workspace = true }
+paymsg-mt = { workspace = true }
+paymsg-iso20022 = { workspace = true }
+paymsg-validate = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

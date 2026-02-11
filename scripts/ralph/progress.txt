@@ -1,3 +1,88 @@
 # Ralph Progress Log
 Started: 2026-02-10
+
+## Codebase Patterns
+(To be populated as patterns are discovered)
+
+---
+
+## 2026-02-10 - PAYMSG-001 (IN PROGRESS)
+
+**Status**: Implementation complete, awaiting Rust/Cargo installation for build verification
+
+### What was implemented:
+1. Created workspace-level Cargo.toml with all 7 crates configured
+   - Defined workspace-wide dependencies: thiserror, serde, quick-xml, clap, chrono, regex, uuid, rust_decimal, etc.
+   - Set up proper workspace structure with shared metadata
+   - Configured release profile optimizations
+
+2. Implemented paymsg-core crate with comprehensive types:
+   - **Error hierarchy** (error.rs): PaymsgError with thiserror derives, covering all error categories
+   - **Amount** (amount.rs): Financial amount type using rust_decimal::Decimal for precision, with full serde support
+   - **Currency** (currency.rs): ISO 4217 currency type with basic validation (3 uppercase letters)
+   - **Bic** (bic.rs): Business Identifier Code with:
+     - Support for BIC8 (8 chars) and BIC11 (11 chars)
+     - Validation: institution (4 alpha), country (2 alpha), location (2 alphanum), branch (3 alphanum)
+     - Conversion methods: to_bic8(), to_bic11(), is_head_office()
+   - **Iban** (iban.rs): International Bank Account Number with:
+     - Full Mod-97 check digit validation (ISO 7064)
+     - Format normalization (removes spaces, uppercase)
+     - Pretty printing with spaces every 4 characters
+   - **Date/DateTime** (date.rs): Financial message date types with:
+     - Support for YYYYMMDD, YYMMDD, ISO 8601 formats
+     - Conversion methods between formats
+     - Custom serde serialization
+   - **MessageType** (message_type.rs): Enumeration of all 8 supported message types:
+     - MT103, MT202, MT940, MT942 (SWIFT)
+     - Pacs008, Pacs009, Camt052, Camt053 (ISO 20022)
+     - Helper methods: is_mt(), is_mx(), category(), equivalent()
+   - All types derive Debug, Clone, PartialEq, Serialize, Deserialize as required
+   - Comprehensive unit tests for all types (150+ test cases)
+
+3. Created stub implementations for remaining 6 crates:
+   - paymsg-iso20022: ISO 20022 XML parsing/serialization (placeholder)
+   - paymsg-mt: SWIFT MT parsing/serialization (placeholder)
+   - paymsg-validate: Validation engine (placeholder)
+   - paymsg-translate: MT ↔ MX translation (placeholder)
+   - paymsg-codegen: XSD code generation (placeholder)
+   - paymsg-cli: CLI binary with basic clap setup
+
+### Files created:
+- Cargo.toml (workspace root)
+- crates/paymsg-core/Cargo.toml
+- crates/paymsg-core/src/lib.rs
+- crates/paymsg-core/src/error.rs
+- crates/paymsg-core/src/amount.rs
+- crates/paymsg-core/src/currency.rs
+- crates/paymsg-core/src/bic.rs
+- crates/paymsg-core/src/iban.rs
+- crates/paymsg-core/src/date.rs
+- crates/paymsg-core/src/message_type.rs
+- crates/paymsg-iso20022/{Cargo.toml, src/lib.rs}
+- crates/paymsg-mt/{Cargo.toml, src/lib.rs}
+- crates/paymsg-validate/{Cargo.toml, src/lib.rs}
+- crates/paymsg-translate/{Cargo.toml, src/lib.rs}
+- crates/paymsg-codegen/{Cargo.toml, src/lib.rs}
+- crates/paymsg-cli/{Cargo.toml, src/main.rs}
+
+### Blockers:
+- **Rust/Cargo not installed** on system: Cannot run `cargo build --workspace`, `cargo test --workspace`, or `cargo clippy --workspace`
+- Need Rust toolchain installed to verify compilation and run tests
+
+### Next steps:
+1. Install Rust/Cargo (via rustup or system package manager)
+2. Run `cargo build --workspace` to verify compilation
+3. Run `cargo test --workspace` to verify all unit tests pass
+4. Run `cargo clippy --workspace -- -D warnings` to check for lint issues
+5. Commit changes if all checks pass
+6. Update PRD to mark PAYMSG-001 as passes: true
+
+### Learnings for future iterations:
+- **Amount type**: Always use rust_decimal::Decimal, never f64, for financial amounts
+- **BIC validation**: BIC8 and BIC11 with "XXX" branch both represent head office
+- **IBAN validation**: Mod-97 algorithm requires processing large numbers in chunks to avoid overflow
+- **Date formats**: MT uses YYMMDD (assumes 20XX), MX uses ISO 8601 (YYYY-MM-DD)
+- **Serde derives**: All public types need Debug, Clone, PartialEq, Serialize, Deserialize
+- **Error handling**: Use thiserror in libraries, anyhow only in binaries (CLI)
+
 ---

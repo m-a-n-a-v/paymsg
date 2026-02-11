@@ -1,0 +1,15 @@
+[package]
+name = "paymsg-iso20022"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+paymsg-core = { workspace = true }
+thiserror = { workspace = true }
+serde = { workspace = true }
+quick-xml = { workspace = true }
+chrono = { workspace = true }
