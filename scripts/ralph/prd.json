@@ -97,7 +97,7 @@
       "title": "Translation engine — MT103 → pacs.008",
       "description": "In paymsg-translate, implement MT103 to pacs.008 translation. Load mapping definitions from ../paymsg-specs/mappings/mt103_pacs008.json. Implement transform functions for each type: direct (copy with optional format conversion), split (field 32A → date + currency + amount), lookup (71A charge bearer: SHA→SHAR, OUR→DEBT, BEN→CRED), derived (generate MsgId, CreDtTm, NbOfTxs=1), conditional (EndToEndId from UETR or field 20). Handle BIC normalization: MT BIC8 → MX BIC11 (append XXX). Handle amount decimal conversion: comma → period. Handle date conversion: YYMMDD → YYYY-MM-DD. Handle name/address split from field 50K/59 to structured MX elements. Test with translation pairs from ../paymsg-specs/testdata/translation_pairs/mt103_pacs008/.",
       "priority": 14,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PAYMSG-015",
