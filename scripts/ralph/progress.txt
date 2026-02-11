@@ -473,3 +473,106 @@ Started: 2026-02-10
 
 ---
 
+
+## 2026-02-10 - PAYMSG-006 ✅ COMPLETE
+
+**Status**: Fully implemented and passing all quality checks
+
+### What was implemented:
+1. Extended field parsing in paymsg-mt/src/fields.rs with 10 new parsers:
+   - **Field 25P**: Account Identification with BIC (BIC/Account format split by /)
+   - **Field 28C**: Statement Number/Sequence Number (handles StatementNumber[/SequenceNumber])
+   - **Balance fields (60F, 60M, 62F, 62M, 64, 65)**: Unified parser for all balance types
+     - Extracts: dc_mark (D/C), date (YYMMDD), currency (3 letters), amount
+     - Handles opening balances (F=final, M=intermediate), closing balances, available balances, forward available balances
+   - **Field 61**: Statement Line (most complex MT field)
+     - Extracts: value_date (YYMMDD), optional entry_date (MMDD), dc_mark (D/C/RD/RC), optional funds_code, amount, transaction_type (4 chars), customer_reference, bank_reference (after //), supplementary_details (continuation line)
+     - Smart entry date detection: only treats 4 digits as entry date if followed by D/C/R mark (prevents misinterpreting amounts starting with 0)
+     - Handles reversals (RD, RC) and multi-line format
+   - **Field 86**: Information to Account Owner
+     - Stores as text subfield
+     - Parses structured codes (?NN format) into separate subfields (code_20, code_32, code_60, etc.)
+     - Handles both structured and unstructured formats
+   - **Field 34F**: Floor Limit Indicator (MT942) - currency + amount
+   - **Field 13D**: Date/Time Indication (MT942) - YYMMDD+HHMM format with + separator
+   - **Field 90D/90C**: Number and Sum of Entries (MT942)
+     - Extracts: number_of_entries, currency, total amount
+     - Handles variable-length entry counts (1-5 digits)
+
+2. Updated parse_subfields() method to route all new field types to appropriate parsers
+
+3. Comprehensive unit tests in fields.rs (30 new tests):
+   - test_parse_field_25p (BIC/Account splitting)
+   - test_parse_field_28c (with and without sequence number)
+   - test_parse_balance_field_60f, test_parse_balance_field_62f_debit
+   - test_parse_field_61_simple, test_parse_field_61_with_entry_date, test_parse_field_61_without_entry_date
+   - test_parse_field_61_debit, test_parse_field_61_reversal, test_parse_field_61_with_supplementary
+   - test_parse_field_86_unstructured, test_parse_field_86_structured, test_parse_field_86_structured_multiline
+   - test_parse_field_34f, test_parse_field_13d
+   - test_parse_field_90d, test_parse_field_90c
+   - test_parse_mt940_minimal, test_parse_mt942_minimal
+
+4. Integration tests in tests/mt940_mt942_tests.rs (8 new tests):
+   - test_parse_mt940_minimal_valid: Tests minimal MT940 with all mandatory fields
+   - test_parse_mt940_multi_statement_line: Tests MT940 with multiple :61: and :86: pairs
+   - test_parse_mt940_month_end: Tests month-end statement format
+   - test_parse_mt942_minimal_valid: Tests minimal MT942 with mandatory fields
+   - test_parse_mt942_intraday_report: Tests MT942 with :25P:, :34F:, :13D:, :90D:, :90C:
+   - test_parse_field_61_from_real_data: Tests field 61 parsing with actual test data
+   - test_parse_field_86_structured_from_real_data: Tests field 86 structured code parsing
+   - test_all_balance_field_types: Tests all 6 balance field types in one message
+
+### Files changed:
+- crates/paymsg-mt/src/fields.rs (added 10 new parsing methods, 30 new unit tests)
+- crates/paymsg-mt/tests/mt940_mt942_tests.rs (NEW - 330 lines, 8 integration tests)
+
+### Quality checks passed:
+- ✅ `cargo build --workspace` - All crates compile with no warnings
+- ✅ `cargo test --workspace` - 171 tests pass (72 core + 58 mt unit + 9 field integration + 8 block integration + 8 mt940/mt942 integration + 8 roundtrip + 8 new mt940/mt942 tests)
+- ✅ `cargo clippy --workspace -- -D warnings` - No warnings
+- ✅ Committed changes with proper message format
+- ✅ Updated PRD: PAYMSG-006 passes = true
+
+### Learnings for future iterations:
+- **Field 61 complexity**: The most complex MT field due to multiple optional components
+  - Entry date detection is ambiguous: 4 digits could be MMDD entry date OR part of an amount starting with 0
+  - Solution: Only treat 4 digits as entry date if immediately followed by D, C, or R (debit/credit mark)
+  - This prevents misinterpreting "231115C015000,00" as having entry date "C015" instead of D/C mark "C" + amount "015000,00"
+- **Field 86 structured codes**: Banks use proprietary formats with ?NN codes
+  - Common codes: ?20 (description), ?21-?29 (continuation), ?30 (sender BIC), ?32 (sender name), ?60 (beneficiary account)
+  - Parser extracts these into subfields (code_20, code_32, etc.) while preserving original text
+  - Handles both structured and unstructured formats gracefully
+- **Balance field unification**: All balance fields (60F, 60M, 62F, 62M, 64, 65) share the same format
+  - Single parse_balance_field() method handles all variants
+  - Format: [D|C]YYMMDDCCCAMOUNT
+  - Differences are in semantic meaning (opening vs closing, final vs intermediate, booked vs available)
+- **MT942 vs MT940 differences**:
+  - MT942 is for intraday/interim reports (no opening/closing balances)
+  - MT942 has :34F: (floor limit - only transactions above this are detailed in :61:)
+  - MT942 has :13D: (date/time of report generation)
+  - MT942 has :90D:/:90C: (total counts and sums of debits/credits, including below-floor-limit transactions)
+  - MT940 has :60F:/:60M: and :62F:/:62M: (opening and closing balances)
+  - Both share :61: (statement line) and :86: (information to account owner)
+- **Field 25 vs 25P**:
+  - Field 25: Simple account number (up to 35 chars)
+  - Field 25P: BIC/Account format (BIC of institution + account number separated by /)
+  - Both are mandatory, but only one should be present
+- **Regex-free parsing**: Most MT statement fields use fixed-position or character-based parsing
+  - More reliable than regex for financial data
+  - Better error messages when parsing fails
+- **Test data importance**: Real MT940/MT942 test files revealed edge cases
+  - Multiple :61:/:86: pairs in sequence
+  - Structured vs unstructured :86: content
+  - Supplementary details on continuation lines in :61:
+  - Entry date presence/absence ambiguity
+- **Reversal indicators**: Field 61 supports RD (reversal of debit) and RC (reversal of credit) in addition to D and C
+  - Important for handling transaction corrections and chargebacks
+  - Parser must check for 2-char D/C marks before checking 1-char marks
+- **HashMap subfield storage**: Flexible approach allows different fields to have different subfield sets
+  - Some fields have date+currency+amount (balances)
+  - Some have multiple references and codes (field 61)
+  - Some have structured codes (field 86)
+  - JSON serialization with skip_serializing_if automatically omits empty subfields
+
+---
+

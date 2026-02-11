@@ -502,6 +502,7 @@ dependencies = [
  "chrono",
  "paymsg-core",
  "quick-xml",
+ "rust_decimal",
  "serde",
  "thiserror",
 ]

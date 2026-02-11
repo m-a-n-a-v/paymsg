@@ -41,7 +41,7 @@
       "title": "MT940/MT942 specific field parsing",
       "description": "In paymsg-mt, extend field parsing for statement messages. Parse MT940-specific fields: :25: (account identification), :28C: (statement number/sequence), :60F:/:60M: (opening balance — D/C + date + currency + amount), :61: (statement line — date + entry date + D/C + amount + transaction type + reference + supplementary details), :62F:/:62M: (closing balance), :64: (closing available balance), :65: (forward available balance), :86: (information to account owner, multi-line). Parse MT942-specific fields: :34F: (floor limit indicator), :13D: (date/time indication). Handle the complex :61: field subfield structure. Write tests using MT940 and MT942 test data.",
       "priority": 6,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PAYMSG-007",
