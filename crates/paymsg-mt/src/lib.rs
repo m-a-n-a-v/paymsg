@@ -8,7 +8,14 @@
 
 use paymsg_core::PaymsgError;
 
+pub mod blocks;
+pub mod parser;
+
+// Re-export main types
+pub use blocks::{
+    ApplicationHeader, BasicHeader, Direction, TextBlock, Trailer, UserHeader,
+};
+pub use parser::MtMessage;
+
 /// Result type for MT operations.
 pub type Result<T> = std::result::Result<T, PaymsgError>;
-
-// Placeholder for future implementation
