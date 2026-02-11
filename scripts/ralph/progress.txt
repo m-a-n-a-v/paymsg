@@ -246,3 +246,113 @@ Started: 2026-02-10
 
 ---
 
+
+## 2026-02-10 - PAYMSG-004 ✅ COMPLETE
+
+**Status**: Fully implemented and passing all quality checks
+
+### What was implemented:
+1. Created comprehensive field parsing infrastructure in paymsg-mt/src/fields.rs:
+   - **MtField struct**: Represents a parsed field with tag, value, and subfields HashMap
+     - Helper methods: base_tag() extracts numeric portion, option() extracts letter suffix
+     - parse_subfields() automatically detects and parses compound fields
+   - **parse_block4_fields()**: Main parsing function
+     - Regex-based tag detection: `^:(\d{2,3}[A-Z]?):`
+     - Multi-line value handling: lines without tags are continuation of previous field
+     - Supports repeating fields: same tag can appear multiple times
+     - Returns Vec<MtField> in order of appearance
+
+2. Implemented compound field parsing for 8 field types:
+   - **Field 32A** (Value Date/Currency/Amount): Extracts date (YYMMDD), currency (3 chars), amount
+   - **Field 33B** (Instructed Amount): Extracts currency and amount
+   - **Field 50K** (Ordering Customer): Extracts optional account line (starts with /) and name/address
+   - **Field 59** (Beneficiary): Same structure as 50K - account + name/address
+   - **Fields 52A/56A/57A/58A** (Institutions): Extracts optional account and BIC
+   - **Field 70** (Remittance Info): Stores as text subfield
+   - **Field 72** (Sender to Receiver): Stores as text subfield
+   - All compound parsers extract subfields into HashMap for easy access
+
+3. MT field specification loading from JSON:
+   - **MtFieldSpec**: Mirrors JSON structure with tag, name, status, max_length, format_pattern, subfields
+   - **MtSubfieldSpec**: Subfield metadata with name, position, format, description
+   - **MtMessageSpec**: Complete message spec with message_type, name, description, fields[]
+   - **load_mt_spec()**: Loads single MT spec from JSON file
+   - **load_all_mt_specs()**: Loads MT103, MT202, MT940, MT942 from specs directory
+   - Proper error handling with SpecLoadError variant
+
+4. Helper functions for MT data conversion:
+   - **parse_mt_amount()**: Converts comma decimal separator to Decimal (1234,56 → 1234.56)
+   - **parse_mt_date_yymmdd()**: Converts YYMMDD to Date, assumes 20XX century (260210 → 2026-02-10)
+   - Both functions use proper error handling and validation
+
+5. Enhanced TextBlock with convenience method:
+   - Added parse_fields() method to TextBlock for easy field extraction
+   - Returns Result<Vec<MtField>, PaymsgError>
+
+6. Comprehensive test coverage (37 new tests total):
+   - **Unit tests in fields.rs** (17 tests):
+     - test_parse_simple_field, test_parse_multiline_field
+     - test_parse_field_32a, test_parse_field_33b
+     - test_parse_field_50k, test_parse_field_59
+     - test_parse_field_institution_a
+     - test_parse_mt_amount, test_parse_mt_date_yymmdd
+     - test_field_base_tag_and_option
+     - test_parse_full_mt103_block4, test_parse_repeating_fields
+   - **Integration tests** (9 tests in field_parsing_tests.rs):
+     - test_parse_mt103_minimal_valid, test_parse_mt103_full_valid
+     - test_parse_mt202_full_valid
+     - test_parse_mt103_with_repeating_fields
+     - test_parse_field_70_remittance_info, test_parse_field_72_sender_to_receiver_info
+     - test_field_base_tag_and_option (integration level)
+     - test_load_mt_spec, test_load_all_mt_specs
+   - Tests use real MT message files from ../paymsg-specs/testdata/
+
+### Files changed:
+- crates/paymsg-mt/src/fields.rs (NEW - 639 lines)
+- crates/paymsg-mt/src/lib.rs (updated exports)
+- crates/paymsg-mt/src/blocks.rs (added TextBlock::parse_fields method)
+- crates/paymsg-mt/Cargo.toml (added rust_decimal dependency)
+- crates/paymsg-mt/tests/field_parsing_tests.rs (NEW - 302 lines)
+
+### Quality checks passed:
+- ✅ `cargo build --workspace` - All crates compile successfully
+- ✅ `cargo test --workspace` - 117 tests pass (72 core + 28 mt unit + 9 field integration + 8 block integration)
+- ✅ `cargo clippy --workspace -- -D warnings` - No warnings
+- ✅ Committed with proper message format
+- ✅ Updated PRD: PAYMSG-004 passes = true
+
+### Learnings for future iterations:
+- **Regex for field tags**: Pattern `^:(\d{2,3}[A-Z]?):` handles both numeric tags (20, 21) and option tags (50K, 59A)
+  - Must anchor with `^` to match at start of trimmed line
+  - 2-3 digits allows for tags like 13C (2 digits + letter) and potential 3-digit tags
+  - Optional letter suffix for field options (A, K, F, D, etc.)
+- **Multi-line parsing strategy**: Track current_tag and current_value, accumulate until next tag found
+  - Lines without `:TAG:` prefix are continuation of previous field
+  - Must preserve line breaks in multi-line values (use `\n` separator)
+  - Trim final value before creating MtField
+- **Compound field patterns**:
+  - Fixed-position fields (32A, 33B): Extract by character position
+  - Optional-prefix fields (50K, 59, 52A, etc.): First line may start with `/` for account
+  - Multi-line fields: Split by `\n`, categorize each line
+- **Subfield HashMap**: Use String keys for flexibility ("date", "currency", "amount", "account", "bic", "name_address", "text")
+  - Allows different fields to have different subfield sets
+  - Easy to check existence with contains_key()
+  - JSON serialization automatically skips empty subfields with `#[serde(skip_serializing_if = "HashMap::is_empty")]`
+- **Spec loading**: JSON deserialization works smoothly with serde_json
+  - Nullable fields use Option<T>
+  - Default values with `#[serde(default)]`
+  - Arrays of nested objects (subfields) deserialize cleanly
+- **Amount parsing**: Always replace comma with period before parsing to Decimal
+  - SWIFT MT uses comma as decimal separator (European convention)
+  - Rust Decimal expects period
+- **Date parsing**: YYMMDD assumes 20XX century (standard practice for SWIFT messages post-2000)
+  - Could add logic for 1900-1999 if needed, but modern messages are 2000+
+- **Test organization**: 
+  - Unit tests in module for quick iteration
+  - Integration tests in separate file for realistic end-to-end validation
+  - Use real test data files to catch edge cases
+- **Repeating fields**: Vec<MtField> naturally supports multiple entries with same tag
+  - Filter by tag to get all occurrences: `fields.iter().filter(|f| f.tag == "23E")`
+
+---
+

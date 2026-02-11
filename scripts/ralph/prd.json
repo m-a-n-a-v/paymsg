@@ -27,7 +27,7 @@
       "title": "MT field parser — parse Block 4 tag:value fields",
       "description": "In paymsg-mt, implement Block 4 field parsing. Parse :TAG:VALUE entries where TAG is 2 digits optionally followed by a letter (e.g., :20:, :32A:, :50K:). Handle multi-line values (lines without a tag prefix belong to the previous field). Handle repeating fields (e.g., multiple :23E: entries). Define MtField struct with tag, value, and subfields. Implement subfield parsing for compound fields: field 32A (date YYMMDD + currency CCC + amount with comma decimal), field 50 options (K: account + name/address lines, F: party ID + details), field 59 options (account + name/address). Load MT field specs from ../paymsg-specs/mt-specs/ to drive validation of known tags. Write tests for MT103 and MT202 field parsing using real test data.",
       "priority": 4,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PAYMSG-005",
