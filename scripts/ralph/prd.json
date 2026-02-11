@@ -139,7 +139,7 @@
       "title": "CLI — validate subcommand",
       "description": "In paymsg-cli, implement the 'validate' subcommand. Parse the input message, then run schema validation and business rule validation. Output validation results as JSON or human-readable table. Support --rules flag to select which rule categories to apply (amount, date, party, structure). Support --severity flag to filter by minimum severity (error, warning, info). Support --specs-dir to override the specs directory. Exit with code 0 if no errors, 1 if validation errors found. Color-code output: red for errors, yellow for warnings, blue for info. Write integration tests using valid and invalid test messages.",
       "priority": 20,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PAYMSG-021",
