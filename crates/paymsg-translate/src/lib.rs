@@ -20,6 +20,9 @@ pub mod types;
 #[cfg(feature = "incomplete")]
 pub mod mt103_to_pacs008;
 
+// MX to MT translators
+pub mod pacs008_to_mt103;
+
 // Re-exports
 pub use types::{
     AmountConverter, BicNormalizer, ChargeBearerConverter, DataLossCategory, DataLossWarning,
@@ -30,3 +33,5 @@ pub use types::{
 // TODO: Enable once pacs008 structures are extended
 #[cfg(feature = "incomplete")]
 pub use mt103_to_pacs008::translate as translate_mt103_to_pacs008;
+
+pub use pacs008_to_mt103::translate as translate_pacs008_to_mt103;

@@ -349,6 +349,9 @@ pub struct PostalAddress {
 
     #[serde(rename = "Ctry", skip_serializing_if = "Option::is_none")]
     pub country: Option<String>,
+
+    #[serde(rename = "AdrLine", skip_serializing_if = "Option::is_none")]
+    pub address_line: Option<Vec<String>>,
 }
 
 /// Cash Account
