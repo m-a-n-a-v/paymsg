@@ -104,7 +104,7 @@
       "title": "Translation engine — pacs.008 → MT103",
       "description": "In paymsg-translate, implement pacs.008 to MT103 (reverse) translation. Implement merge transforms: combine date + currency + amount → field 32A. Handle BIC truncation: MX BIC11 → MT BIC8 (strip XXX branch code if present). Handle charge bearer reverse lookup: SHAR→SHA, DEBT→OUR, CRED→BEN. Handle name/address merge into 4x35 MT field lines with truncation if needed. Handle fields that require defaulting when MX data is missing (Block 1 session/sequence = 0). Track data loss: fields present in MX but not representable in MT (e.g., CreDtTm precision). Return TranslationResult with the translated message plus a list of DataLossWarning items. Test with reverse translation pairs.",
       "priority": 15,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PAYMSG-016",

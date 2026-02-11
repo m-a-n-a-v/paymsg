@@ -1629,3 +1629,82 @@ The pacs.008 module (PAYMSG-007) was implemented with **simplified structures** 
 
 ---
 
+
+## 2026-02-10 - PAYMSG-015 ✅ COMPLETE
+
+**Status**: Fully implemented and passing all quality checks
+
+### What was implemented:
+1. Created pacs008_to_mt103.rs module with complete reverse translation logic
+   - Translates ISO 20022 pacs.008 to SWIFT MT103
+   - Implements all required merge, lookup, and conversion transforms
+   - Comprehensive data loss tracking and warning system
+
+2. Key translation features:
+   - **Merge transform**: Combines IntrBkSttlmDt + Ccy + IntrBkSttlmAmt → field 32A (YYMMDDCCCAMOUNT)
+   - **BIC truncation**: MX BIC11 → MT BIC8 (removes XXX suffix for head office)
+   - **Charge bearer reverse lookup**: SHAR→SHA, DEBT→OUR, CRED→BEN, SLEV→SHA
+   - **Date conversion**: YYYY-MM-DD → YYMMDD (ISO 8601 to MT format)
+   - **Amount conversion**: Decimal type → comma-separated string (1234.56 → 1234,56)
+   - **Name/address merge**: Structured MX party elements → 4x35 MT field lines with word wrapping
+
+3. Data loss tracking:
+   - Multiple transactions warning (MT103 only supports 1, pacs.008 supports batch)
+   - Reference truncation (MT field 20 limited to 16 chars vs MX 35 chars)
+   - Address truncation (MT supports max 4 lines, MX can have more)
+   - Session/sequence number defaulting (Block 1 defaults to 0000/000000)
+   - Priority defaulting (Block 2 defaults to Normal)
+   - CreDtTm precision loss (not representable in MT103)
+
+4. Block construction:
+   - **Block 1**: BasicHeader with BIC from instructing agent, defaulted session/sequence
+   - **Block 2**: ApplicationHeader with BIC from instructed agent, Input direction, message type 103
+   - **Block 3**: UserHeader with UETR if present
+   - **Block 4**: TextBlock with all translated fields (20, 23B, 32A, 50K, 59, 71A)
+   - **Block 5**: Trailer (typically empty for translated messages)
+
+5. Field implementations:
+   - Field 20: Transaction reference from InstrId or EndToEndId
+   - Field 23B: Bank operation code from LclInstrm/Prtry or default "CRED"
+   - Field 32A: Value date + currency + amount (merge transform)
+   - Field 50K: Ordering customer (debtor) with name/address formatting
+   - Field 59: Beneficiary customer (creditor) with name/address formatting
+   - Field 71A: Charge bearer code (reverse lookup)
+
+6. Added AdrLine field to PostalAddress in pacs008.rs
+   - Enables proper handling of unstructured address lines in MX messages
+   - Supports Vec<String> for multiple address lines
+
+7. Created comprehensive integration tests:
+   - test_pacs008_to_mt103_minimal: Minimal valid message translation
+   - test_pacs008_to_mt103_sepa: SEPA credit transfer translation
+   - test_pacs008_to_mt103_usd: USD wire transfer translation
+   - test_charge_bearer_conversion: Charge bearer code mapping validation
+   - All tests use real data from ../paymsg-specs/testdata/translation_pairs/
+
+### Files changed:
+- crates/paymsg-translate/src/pacs008_to_mt103.rs (new, 461 lines)
+- crates/paymsg-translate/src/lib.rs (added module export)
+- crates/paymsg-translate/tests/pacs008_mt103_tests.rs (new, 276 lines)
+- crates/paymsg-iso20022/src/pacs008.rs (added address_line field)
+
+### Quality checks passed:
+- ✅ cargo build --workspace (all crates compile)
+- ✅ cargo test --workspace (all 273 tests pass)
+- ✅ cargo clippy --workspace -- -D warnings (no warnings)
+- ✅ Integration tests with real translation test data
+- ✅ Unit tests for helper functions (split_into_mt_lines)
+- ✅ Committed with proper message format
+- ✅ Updated PRD: PAYMSG-015 passes = true
+
+### Learnings for future iterations:
+- **Name/address formatting**: MT103 fields 50K and 59 have strict 4x35 character limits. Implemented word-boundary-aware line splitting to avoid breaking words where possible.
+- **BIC normalization**: Both BIC8 and BIC11 ending with XXX represent head office. When translating MX to MT, prefer BIC8 for cleaner output.
+- **Decimal to string conversion**: rust_decimal::Decimal.to_string() provides clean decimal output without scientific notation, suitable for amount formatting.
+- **Data loss warnings**: Critical for MX→MT translation since MT format is more constrained. Track and report all data that cannot be represented.
+- **Block 1 LT address**: Requires 12 characters (BIC8 + 4 chars). Format as BIC8 + "AXXX" for head office.
+- **Block 2 destination BIC**: Pad to 12 characters with "XXXX" suffix for Input messages.
+- **Field ordering**: MT103 has specific field order requirements (20, 23B, 32A, 50K, 59, 71A as minimum set).
+- **TranslationResult pattern**: Using a result type with warnings collection is cleaner than throwing errors for lossy but valid translations.
+
+---
