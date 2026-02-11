@@ -1,6 +1,8 @@
 //! CLI binary for paymsg.
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
+
+mod commands;
 
 #[derive(Parser)]
 #[command(name = "paymsg")]
@@ -8,13 +10,23 @@ use clap::Parser;
 #[command(version)]
 struct Cli {
     /// Enable verbose logging
-    #[arg(short, long)]
+    #[arg(short, long, global = true)]
     verbose: bool,
+
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Parse a message and output structured JSON
+    Parse(commands::parse::ParseArgs),
 }
 
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
+    // Initialize logger
     if cli.verbose {
         env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug"))
             .init();
@@ -22,7 +34,8 @@ fn main() -> anyhow::Result<()> {
         env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
     }
 
-    println!("paymsg CLI - Coming soon!");
-
-    Ok(())
+    // Execute command
+    match cli.command {
+        Commands::Parse(args) => commands::parse::execute(args),
+    }
 }

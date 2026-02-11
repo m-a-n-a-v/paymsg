@@ -483,6 +483,7 @@ dependencies = [
  "paymsg-mt",
  "paymsg-translate",
  "paymsg-validate",
+ "serde",
  "serde_json",
 ]
 
