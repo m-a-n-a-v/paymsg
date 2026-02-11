@@ -2233,3 +2233,76 @@ The pacs.008 module (PAYMSG-007) was implemented with **simplified structures** 
 - **Helper functions**: Extract common patterns (translate_to_json, translate_to_native, validate_message) to reduce duplication
 
 ---
+
+## 2026-02-11 - PAYMSG-024 ✅ COMPLETE
+
+**Status**: Fully implemented and passing all quality checks
+
+### What was implemented:
+1. **Comprehensive documentation added to all public APIs across all crates**:
+   - **paymsg-core**: Enhanced doc comments for Amount, Bic, Iban, Currency, Date, DateTime, MessageType, error types, and all spec loader types
+   - **paymsg-mt**: Added detailed docs for MtMessage, block types, field parsing functions, serialization functions
+   - **paymsg-iso20022**: Documented all parse/serialize functions for pacs.008, pacs.009, camt.052, camt.053 with examples
+   - **paymsg-validate**: Added docs for Validator trait, ValidationResult, ValidationIssue, all validator types, business rule loading
+   - **paymsg-translate**: Comprehensive docs for all 8 translation functions, TranslationResult, DataLossWarning, and converter utilities
+
+2. **Documentation quality improvements**:
+   - Added usage examples to all main constructors and public functions
+   - Documented error conditions with clear explanations
+   - Added parameter and return value descriptions
+   - Noted validation rules, format requirements, and constraints
+   - Used proper rustdoc formatting for cross-references and code blocks
+   - Fixed rustdoc warnings (escaped brackets in complex format strings)
+
+3. **API hygiene improvements**:
+   - Removed redundant `#[must_use]` attributes from Result-returning functions (35 occurrences across all crates)
+   - Result types are already marked with `#[must_use]`, so adding it again caused clippy warnings
+   - Verified all public types have proper trait implementations (Debug, Clone, PartialEq, Serialize, Deserialize)
+
+4. **Public exports review**:
+   - Verified all crates have clean lib.rs exports with pub use statements
+   - Confirmed paymsg-core prelude module exists with commonly-used types
+   - All crate-level documentation (//! comments) properly explains crate purposes
+
+### Files changed:
+- crates/paymsg-core/src/amount.rs (enhanced documentation)
+- crates/paymsg-core/src/bic.rs (enhanced documentation)
+- crates/paymsg-core/src/currency.rs (enhanced documentation)
+- crates/paymsg-core/src/date.rs (enhanced documentation, removed redundant #[must_use])
+- crates/paymsg-core/src/iban.rs (enhanced documentation)
+- crates/paymsg-core/src/specs.rs (enhanced documentation, removed redundant #[must_use])
+- crates/paymsg-mt/src/parser.rs (enhanced documentation)
+- crates/paymsg-mt/src/blocks.rs (enhanced documentation)
+- crates/paymsg-mt/src/fields.rs (enhanced documentation, fixed rustdoc warning)
+- crates/paymsg-mt/src/serializer.rs (enhanced documentation)
+- crates/paymsg-iso20022/src/lib.rs (enhanced documentation, fixed doctest, removed redundant #[must_use])
+- crates/paymsg-validate/src/types.rs (enhanced documentation)
+- crates/paymsg-validate/src/business_rules.rs (enhanced documentation)
+- crates/paymsg-translate/src/types.rs (enhanced documentation)
+- crates/paymsg-translate/src/pacs008_to_mt103.rs (enhanced documentation)
+- crates/paymsg-translate/src/pacs009_to_mt202.rs (enhanced documentation)
+- crates/paymsg-translate/src/mt202_to_pacs009.rs (enhanced documentation)
+- crates/paymsg-translate/src/mt940_to_camt053.rs (enhanced documentation)
+- crates/paymsg-translate/src/camt053_to_mt940.rs (enhanced documentation)
+- crates/paymsg-translate/src/mt942_to_camt052.rs (enhanced documentation)
+- crates/paymsg-translate/src/camt052_to_mt942.rs (enhanced documentation)
+
+### Quality checks passed:
+- ✅ `cargo build --workspace` - All crates compile successfully
+- ✅ `cargo test --workspace` - All tests pass (including doctests)
+- ✅ `cargo clippy --workspace -- -D warnings` - Zero warnings
+- ✅ `cargo doc --workspace --no-deps` - Documentation builds cleanly with no warnings
+- ✅ All public types implement required traits (Debug, Clone, PartialEq, Serialize, Deserialize)
+- ✅ Committed changes with proper message format
+- ✅ Updated PRD: PAYMSG-024 passes = true
+
+### Learnings for future iterations:
+- **#[must_use] attribute**: Only use on functions that DON'T return Result types. Result itself is already marked with #[must_use], so adding it again causes clippy::double_must_use warnings
+- **Rustdoc escaping**: In doc comments, square brackets `[]` are interpreted as links. Use backslash escaping `\[` or backticks for literal text
+- **Doctest markers**: Use `ignore` for examples that require complex setup, `no_run` for examples that shouldn't execute but should compile
+- **Documentation examples**: Should be minimal but complete - showing just enough to demonstrate usage without overwhelming detail
+- **Error documentation**: Always document error conditions in a dedicated "# Errors" section
+- **Cross-references**: Use square brackets `[TypeName]` to create links between types in documentation
+- **Public API surface**: The paymsg library is now production-ready with comprehensive documentation for all public APIs
+
+---

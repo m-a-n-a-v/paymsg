@@ -167,7 +167,7 @@
       "title": "Library public API — clean exports and documentation",
       "description": "Clean up the public API surface for use as a library. In each crate's lib.rs, define clear public exports with pub use statements. Create a top-level paymsg-core prelude module re-exporting the most commonly used types. Add doc comments (///) to all public types, traits, and functions with usage examples. Ensure all public types implement standard traits: Debug, Clone, PartialEq, Serialize, Deserialize. Add #[must_use] to Result-returning functions. Add crate-level documentation (//! comments) in each lib.rs explaining the crate's purpose. Verify docs build with cargo doc --workspace --no-deps. Run final cargo test and cargo clippy.",
       "priority": 24,
-      "passes": false
+      "passes": true
     }
   ]
 }
