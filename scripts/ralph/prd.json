@@ -125,7 +125,7 @@
       "title": "Translation engine — MT942 ↔ camt.052",
       "description": "In paymsg-translate, implement bidirectional MT942 ↔ camt.052 translation. Load mappings from mt942_camt052.json. MT942 is similar to MT940 but for interim/intraday reports. Key differences: :34F: floor limit indicator, :13D: date/time indication, no opening/closing balance (uses :90D:/:90C: debit/credit totals). Map interim entries and totals. Reuse common statement translation logic from MT940. Test with mt942_camt052 translation pairs.",
       "priority": 18,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PAYMSG-019",

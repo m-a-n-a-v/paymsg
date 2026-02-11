@@ -1848,3 +1848,68 @@ The pacs.008 module (PAYMSG-007) was implemented with **simplified structures** 
 - ✅ Proper data loss warnings for generated fields
 
 ---
+
+## 2026-02-10 23:50 - PAYMSG-018 ✅ COMPLETE
+
+**Status**: Fully implemented and passing all quality checks
+
+### What was implemented:
+1. **MT942 to camt.052 translation** (mt942_to_camt052.rs - 907 lines):
+   - Parse all MT942 fields including interim-specific fields
+   - Field 13D: Date/time indication (YYMMDD+HHMM → ISO 8601)
+   - Field 34F: Floor limit indicator → ReportingSource/Prtry + AddtlRptInf
+   - Field 61: Statement lines → Entry elements (reused from MT940 logic)
+   - Field 86: Information to account owner → Entry details/remittance info
+   - Fields 90D/90C: Debit/credit summary totals → TxsSummary
+   - NO balance fields (key difference from MT940)
+
+2. **camt.052 to MT942 reverse translation** (camt052_to_mt942.rs - 582 lines):
+   - Reverse mapping for all MT942 fields
+   - CreDtTm → Field 13D with date/time formatting
+   - TxsSummary → Fields 90D/90C
+   - RptgSrc/Prtry → Field 34F (floor limit reconstruction)
+   - Entry elements → Field 61 statement lines
+   - Default Block 1/2 values (not present in camt.052)
+
+3. **Updated lib.rs exports**:
+   - Added `translate_mt942_to_camt052` function
+   - Added `translate_camt052_to_mt942` function
+   - Both translation functions available for use
+
+4. **Comprehensive test suite** (mt942_camt052_tests.rs - 9 integration tests):
+   - test_mt942_to_camt052_minimal: Basic translation
+   - test_camt052_to_mt942_roundtrip: Bidirectional preservation
+   - test_mt942_with_entries: Entry parsing
+   - test_mt942_floor_limit: Field 34F handling
+   - test_mt942_field_25p_with_bic: BIC/Account format
+   - test_mt942_debit_credit_entries: Multiple entries
+   - test_mt942_reversal_entries: RC/RD marks
+   - test_mt942_pending_entries: D funds code
+   - test_translation_infrastructure_exists: API check
+
+### Files changed:
+- crates/paymsg-translate/src/mt942_to_camt052.rs (NEW - 907 lines)
+- crates/paymsg-translate/src/camt052_to_mt942.rs (NEW - 582 lines)
+- crates/paymsg-translate/src/lib.rs (updated exports)
+- crates/paymsg-translate/tests/mt942_camt052_tests.rs (NEW - 415 lines)
+- scripts/ralph/prd.json (marked PAYMSG-018 as passing)
+
+### Quality checks passed:
+- ✅ `cargo build --workspace` - All crates compile
+- ✅ `cargo test --workspace` - All 25 unit tests + 9 integration tests pass
+- ✅ `cargo clippy --workspace -- -D warnings` - No warnings
+- ✅ Committed with proper message format
+- ✅ Updated PRD: PAYMSG-018 passes = true
+
+### Learnings for future iterations:
+- **MT942 vs MT940 differences**: MT942 is for intraday reporting, has no opening/closing balances, uses summary totals (90D/90C) instead, has floor limit indicator (34F) and date/time stamp (13D)
+- **Field 13D format**: YYMMDD+HHMM local time → ISO 8601 YYYY-MM-DDTHH:MM:SS conversion requires careful parsing and timezone handling
+- **Field 34F**: Floor limit has no direct camt.052 equivalent, mapped to RptgSrc/Prtry and AddtlRptInf for preservation
+- **Summary totals**: Fields 90D/90C include ALL transactions (both above and below floor limit), providing complete picture
+- **Reusable patterns**: Field 61 and 86 parsing logic identical to MT940, successfully reused code structure
+- **Type differences**: camt.052 NumberAndSumOfTransactions uses `number_of_entries: Option<u64>` and `sum: Option<Decimal>` (not ActiveOrHistoricCurrencyAndAmount)
+- **Entry structure**: Entry.amount is not Option, Entry.status is not Option, Entry.bank_transaction_code is not Option
+- **Test adaptation**: Had to carefully update test assertions to match actual type structure (not all fields are Option-wrapped)
+- **Clippy improvements**: Use `.cloned()` instead of `.map(|x| x.clone())`, avoid needless borrows, add type annotations for ambiguous cases
+
+---
