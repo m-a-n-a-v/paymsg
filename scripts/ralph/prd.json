@@ -1,0 +1,173 @@
+{
+  "branchName": "ralph/build-paymsg",
+  "userStories": [
+    {
+      "id": "PAYMSG-001",
+      "title": "Workspace scaffolding and core crate foundation",
+      "description": "Create the Rust workspace with all 7 crates. Set up workspace-level Cargo.toml with shared dependencies. Implement paymsg-core with foundational types: Amount (using rust_decimal::Decimal), Currency, Bic, Iban, Date, MessageType enum (MT103, MT202, MT940, MT942, Pacs008, Pacs009, Camt052, Camt053), and a comprehensive error type hierarchy using thiserror. Add serde Serialize/Deserialize derives to all types. Write unit tests for Amount arithmetic, Currency lookup, BIC validation (8 and 11 chars), and IBAN check digit validation (Mod-97). Ensure cargo build, cargo test, and cargo clippy all pass.",
+      "priority": 1,
+      "passes": false
+    },
+    {
+      "id": "PAYMSG-002",
+      "title": "Spec loader — load reference data from paymsg-specs",
+      "description": "In paymsg-core, implement a SpecLoader that reads JSON files from the paymsg-specs sibling repository. Define Rust structs matching the JSON schemas: CurrencySpec (code, name, numeric_code, decimal_places, is_active), CountrySpec (code, name, alpha3, numeric_code, is_active), IbanFormat (country_code, length, bban_format regex, example, bank_id_position), BicSpec (structure definition), SwiftCharset definitions. Load from PAYMSG_SPECS_DIR env var or default to ../paymsg-specs. Implement CurrencyRegistry, CountryRegistry, IbanRegistry with lookup methods. Write tests that load actual JSON files from ../paymsg-specs/reference/.",
+      "priority": 2,
+      "passes": false
+    },
+    {
+      "id": "PAYMSG-003",
+      "title": "MT block parser — parse 5-block structure",
+      "description": "In paymsg-mt, implement MT message block parsing. Define MtMessage struct with block1 (BasicHeader), block2 (ApplicationHeader), block3 (UserHeader, optional), block4 (TextBlock), block5 (Trailer, optional). Parse Block 1 fields: application_id, service_id, logical_terminal_address (BIC + LT code + branch). Parse Block 2: distinguish Input (I) vs Output (O) format, extract message_type, destination/sender BIC, priority. Parse Block 3: extract tag-value pairs (108:MUR, 121:UETR, 119:STP, etc.). Parse Block 5: extract trailer tags (CHK, TNG, PDE, etc.). Handle both \\r\\n and \\n line endings. Write tests using sample MT messages from ../paymsg-specs/testdata/mt/.",
+      "priority": 3,
+      "passes": false
+    },
+    {
+      "id": "PAYMSG-004",
+      "title": "MT field parser — parse Block 4 tag:value fields",
+      "description": "In paymsg-mt, implement Block 4 field parsing. Parse :TAG:VALUE entries where TAG is 2 digits optionally followed by a letter (e.g., :20:, :32A:, :50K:). Handle multi-line values (lines without a tag prefix belong to the previous field). Handle repeating fields (e.g., multiple :23E: entries). Define MtField struct with tag, value, and subfields. Implement subfield parsing for compound fields: field 32A (date YYMMDD + currency CCC + amount with comma decimal), field 50 options (K: account + name/address lines, F: party ID + details), field 59 options (account + name/address). Load MT field specs from ../paymsg-specs/mt-specs/ to drive validation of known tags. Write tests for MT103 and MT202 field parsing using real test data.",
+      "priority": 4,
+      "passes": false
+    },
+    {
+      "id": "PAYMSG-005",
+      "title": "MT serializer — generate MT messages from structs",
+      "description": "In paymsg-mt, implement MT message serialization (struct → MT text). Generate proper block structure with curly braces. Format Block 1 with padded session/sequence numbers. Format Block 2 in Input or Output format. Format Block 3 tag-value pairs. Format Block 4 with CRLF line endings, proper :TAG:VALUE format, and trailing dash. Format Block 5 trailer tags. Handle amount formatting with comma decimal separator. Handle date formatting (YYYY-MM-DD → YYMMDD). Write round-trip tests: parse MT → serialize → compare with original (normalize whitespace). Test with minimal_valid.mt files from all 4 MT types.",
+      "priority": 5,
+      "passes": false
+    },
+    {
+      "id": "PAYMSG-006",
+      "title": "MT940/MT942 specific field parsing",
+      "description": "In paymsg-mt, extend field parsing for statement messages. Parse MT940-specific fields: :25: (account identification), :28C: (statement number/sequence), :60F:/:60M: (opening balance — D/C + date + currency + amount), :61: (statement line — date + entry date + D/C + amount + transaction type + reference + supplementary details), :62F:/:62M: (closing balance), :64: (closing available balance), :65: (forward available balance), :86: (information to account owner, multi-line). Parse MT942-specific fields: :34F: (floor limit indicator), :13D: (date/time indication). Handle the complex :61: field subfield structure. Write tests using MT940 and MT942 test data.",
+      "priority": 6,
+      "passes": false
+    },
+    {
+      "id": "PAYMSG-007",
+      "title": "ISO 20022 XML parser — pacs.008 (Customer Credit Transfer)",
+      "description": "In paymsg-iso20022, implement XML parsing for pacs.008.001.10 using quick-xml with serde. Define Rust structs for the message hierarchy: Document > FIToFICstmrCdtTrf > GrpHdr (MsgId, CreDtTm, NbOfTxs, SttlmInf, InstgAgt, InstdAgt) + CdtTrfTxInf[] (PmtId, IntrBkSttlmAmt, IntrBkSttlmDt, ChrgBr, InstdAmt, XchgRate, Dbtr, DbtrAcct, DbtrAgt, CdtrAgt, Cdtr, CdtrAcct, RmtInf, InstrForCdtrAgt, PmtTpInf). Handle XML namespaces correctly (urn:iso:std:iso:20022:tech:xsd:pacs.008.001.10). Handle optional elements with Option<T>. Handle the Ccy attribute on amount elements. Parse BICFI, IBAN, and party identification elements. Write tests parsing all pacs.008 XML files from ../paymsg-specs/testdata/mx/pacs.008/.",
+      "priority": 7,
+      "passes": false
+    },
+    {
+      "id": "PAYMSG-008",
+      "title": "ISO 20022 XML parser — pacs.009 (FI Credit Transfer)",
+      "description": "In paymsg-iso20022, implement XML parsing for pacs.009.001.10. Define Rust structs for: Document > FICdtTrf > GrpHdr + CdtTrfTxInf[]. pacs.009 is similar to pacs.008 but for interbank transfers. Key differences: no Dbtr/Cdtr party details (only agents), different mandatory fields. Reuse common types from pacs.008 where possible (GrpHdr, PmtId, amount types, agent types). Write tests parsing pacs.009 XML files from ../paymsg-specs/testdata/mx/pacs.009/.",
+      "priority": 8,
+      "passes": false
+    },
+    {
+      "id": "PAYMSG-009",
+      "title": "ISO 20022 XML parser — camt.053 and camt.052 (Statements)",
+      "description": "In paymsg-iso20022, implement XML parsing for camt.053.001.10 (Bank-to-Customer Statement) and camt.052.001.10 (Interim Report). Define structs for: Document > BkToCstmrStmt/BkToCstmrAcctRpt > GrpHdr + Stmt/Rpt[] containing Acct, Bal[], Ntry[] (entries with amounts, dates, references, transaction details). Handle balance types (OPBD=opening booked, CLBD=closing booked, CLAV=closing available, FWAV=forward available, ITBD=interim booked). Handle entry status (BOOK, PDNG, INFO). Reuse common types. Write tests with camt.053 and camt.052 test data.",
+      "priority": 9,
+      "passes": false
+    },
+    {
+      "id": "PAYMSG-010",
+      "title": "ISO 20022 XML serializer — generate MX messages",
+      "description": "In paymsg-iso20022, implement XML serialization for all 4 message types. Generate well-formed XML with proper namespaces, indentation, and XML declaration. Handle the Ccy attribute on IntrBkSttlmAmt and InstdAmt elements. Serialize optional elements only when present. Write round-trip tests: parse XML → serialize → parse again → compare structs. Test with all XML files from ../paymsg-specs/testdata/mx/. Ensure generated XML is valid and human-readable with 2-space indentation.",
+      "priority": 10,
+      "passes": false
+    },
+    {
+      "id": "PAYMSG-011",
+      "title": "Validation engine — schema validation framework",
+      "description": "In paymsg-validate, implement the validation framework. Define ValidationResult with a list of ValidationIssue (id, severity: Error/Warning/Info, field_path, message, suggestion). Define Validator trait with validate() method. Implement schema-level validators: MtSchemaValidator (checks mandatory fields present, field lengths, format patterns from mt-specs JSON), MxSchemaValidator (checks required XML elements present, element types). Load MT field specs from ../paymsg-specs/mt-specs/ for field validation rules. Implement SWIFT charset validation (X, Y, Z sets from swift_charsets.json). Test MT103 schema validation with valid and invalid test messages.",
+      "priority": 11,
+      "passes": false
+    },
+    {
+      "id": "PAYMSG-012",
+      "title": "Validation engine — business rule evaluator",
+      "description": "In paymsg-validate, implement business rule evaluation. Load rules from ../paymsg-specs/rules/ JSON files. Implement a simple expression evaluator for rule assertions: comparison operators (>, <, >=, <=, ==, !=), existence checks (exists, not_exists), string functions (length, matches, starts_with, ends_with), numeric checks, and boolean operators (AND, OR, NOT). Evaluate rule conditions (\"always\" or \"if X exists\") to determine applicability. Apply rules to parsed MX messages by resolving field_paths to actual values. Return ValidationResult with all triggered rules. Test with pacs008_rules.json against valid and invalid pacs.008 test messages.",
+      "priority": 12,
+      "passes": false
+    },
+    {
+      "id": "PAYMSG-013",
+      "title": "Validation — cross-field and reference data validation",
+      "description": "In paymsg-validate, implement cross-field and reference data validators. Currency validation: check currency code exists in currencies.json, verify decimal places match currency spec. BIC validation: check structure (4 alpha + 2 alpha + 2 alphanum + optional 3 alphanum), verify country code exists. IBAN validation: verify length matches country spec from iban_formats.json, validate check digits with Mod-97 algorithm, validate BBAN format regex. Amount consistency: if both IntrBkSttlmAmt and InstdAmt present with different currencies, XchgRate should exist. Date validation: settlement date not in the past, reasonable future range. Test with both valid messages and the invalid_* test messages.",
+      "priority": 13,
+      "passes": false
+    },
+    {
+      "id": "PAYMSG-014",
+      "title": "Translation engine — MT103 → pacs.008",
+      "description": "In paymsg-translate, implement MT103 to pacs.008 translation. Load mapping definitions from ../paymsg-specs/mappings/mt103_pacs008.json. Implement transform functions for each type: direct (copy with optional format conversion), split (field 32A → date + currency + amount), lookup (71A charge bearer: SHA→SHAR, OUR→DEBT, BEN→CRED), derived (generate MsgId, CreDtTm, NbOfTxs=1), conditional (EndToEndId from UETR or field 20). Handle BIC normalization: MT BIC8 → MX BIC11 (append XXX). Handle amount decimal conversion: comma → period. Handle date conversion: YYMMDD → YYYY-MM-DD. Handle name/address split from field 50K/59 to structured MX elements. Test with translation pairs from ../paymsg-specs/testdata/translation_pairs/mt103_pacs008/.",
+      "priority": 14,
+      "passes": false
+    },
+    {
+      "id": "PAYMSG-015",
+      "title": "Translation engine — pacs.008 → MT103",
+      "description": "In paymsg-translate, implement pacs.008 to MT103 (reverse) translation. Implement merge transforms: combine date + currency + amount → field 32A. Handle BIC truncation: MX BIC11 → MT BIC8 (strip XXX branch code if present). Handle charge bearer reverse lookup: SHAR→SHA, DEBT→OUR, CRED→BEN. Handle name/address merge into 4x35 MT field lines with truncation if needed. Handle fields that require defaulting when MX data is missing (Block 1 session/sequence = 0). Track data loss: fields present in MX but not representable in MT (e.g., CreDtTm precision). Return TranslationResult with the translated message plus a list of DataLossWarning items. Test with reverse translation pairs.",
+      "priority": 15,
+      "passes": false
+    },
+    {
+      "id": "PAYMSG-016",
+      "title": "Translation engine — MT202 ↔ pacs.009",
+      "description": "In paymsg-translate, implement bidirectional MT202 ↔ pacs.009 translation. Load mappings from mt202_pacs009.json. MT202 is simpler than MT103 (no ordering/beneficiary customer, only FI parties). Key fields: :20: (reference), :21: (related reference), :32A: (value date/currency/amount), :52A: (ordering institution), :58A: (beneficiary institution), :57A: (account with institution). Reuse transform infrastructure from MT103 translation. Test with mt202_pacs009 translation pairs.",
+      "priority": 16,
+      "passes": false
+    },
+    {
+      "id": "PAYMSG-017",
+      "title": "Translation engine — MT940 ↔ camt.053",
+      "description": "In paymsg-translate, implement bidirectional MT940 ↔ camt.053 translation. Load mappings from mt940_camt053.json. This is more complex due to statement lines. Map :60F: opening balance → Bal[OPBD], :62F: closing balance → Bal[CLBD], :64: → Bal[CLAV], :65: → Bal[FWAV]. Map :61: statement lines → Ntry entries (date, amount, debit/credit, transaction type, reference). Map :86: information lines → Ntry/AddtlNtryInf. Handle balance D/C indicator mapping. Handle statement pagination (:28C: statement number). Test with mt940_camt053 translation pairs.",
+      "priority": 17,
+      "passes": false
+    },
+    {
+      "id": "PAYMSG-018",
+      "title": "Translation engine — MT942 ↔ camt.052",
+      "description": "In paymsg-translate, implement bidirectional MT942 ↔ camt.052 translation. Load mappings from mt942_camt052.json. MT942 is similar to MT940 but for interim/intraday reports. Key differences: :34F: floor limit indicator, :13D: date/time indication, no opening/closing balance (uses :90D:/:90C: debit/credit totals). Map interim entries and totals. Reuse common statement translation logic from MT940. Test with mt942_camt052 translation pairs.",
+      "priority": 18,
+      "passes": false
+    },
+    {
+      "id": "PAYMSG-019",
+      "title": "CLI — parse subcommand",
+      "description": "In paymsg-cli, implement the CLI binary using clap derive macros. Implement the 'parse' subcommand: detect message format (MT vs MX) automatically from content, parse the message, and output structured JSON representation. Support reading from file path or stdin. Support --format flag to force MT or MX parsing. Support --output flag for output file (default stdout). Support --pretty flag for pretty-printed JSON. Add proper error messages with context (file path, line number for parse errors). Implement format auto-detection: starts with '{1:' → MT, starts with '<?xml' or '<Document' → MX. Write integration tests with test message files.",
+      "priority": 19,
+      "passes": false
+    },
+    {
+      "id": "PAYMSG-020",
+      "title": "CLI — validate subcommand",
+      "description": "In paymsg-cli, implement the 'validate' subcommand. Parse the input message, then run schema validation and business rule validation. Output validation results as JSON or human-readable table. Support --rules flag to select which rule categories to apply (amount, date, party, structure). Support --severity flag to filter by minimum severity (error, warning, info). Support --specs-dir to override the specs directory. Exit with code 0 if no errors, 1 if validation errors found. Color-code output: red for errors, yellow for warnings, blue for info. Write integration tests using valid and invalid test messages.",
+      "priority": 20,
+      "passes": false
+    },
+    {
+      "id": "PAYMSG-021",
+      "title": "CLI — translate subcommand",
+      "description": "In paymsg-cli, implement the 'translate' subcommand. Detect source format, translate to target format. Support --from and --to flags (mt103, pacs008, mt202, pacs009, mt940, camt053, mt942, camt052). Auto-detect source format if --from not specified. Output translated message in native format (MT text or XML). Support --validate flag to validate the output after translation. Report data loss warnings to stderr. Support --json flag to output structured JSON instead of native format. Write integration tests translating all test message pairs and comparing output.",
+      "priority": 21,
+      "passes": false
+    },
+    {
+      "id": "PAYMSG-022",
+      "title": "CLI — info and completions subcommands",
+      "description": "In paymsg-cli, implement utility subcommands. 'info' subcommand: show information about a message without full parsing — detect type, show key fields (reference, amount, date, sender/receiver). 'completions' subcommand: generate shell completions for bash, zsh, fish using clap_complete. Add --version flag showing version from Cargo.toml. Add top-level --verbose flag for debug logging using env_logger. Write a comprehensive --help with examples for each subcommand. Test the info subcommand with various message types.",
+      "priority": 22,
+      "passes": false
+    },
+    {
+      "id": "PAYMSG-023",
+      "title": "Integration tests — end-to-end translation round trips",
+      "description": "Create comprehensive integration tests in paymsg-cli/tests/. Test full round-trip translations: MT103 → pacs.008 → MT103 (verify key fields preserved). Test pacs.008 → MT103 → pacs.008. Test MT202 ↔ pacs.009 round trips. Test MT940 ↔ camt.053 round trips. Test MT942 ↔ camt.052 round trips. Use all translation pair files from ../paymsg-specs/testdata/translation_pairs/. Verify that data loss warnings are correctly reported for lossy translations. Verify that validation passes on translated messages. These tests exercise the full pipeline: parse → translate → validate → serialize.",
+      "priority": 23,
+      "passes": false
+    },
+    {
+      "id": "PAYMSG-024",
+      "title": "Library public API — clean exports and documentation",
+      "description": "Clean up the public API surface for use as a library. In each crate's lib.rs, define clear public exports with pub use statements. Create a top-level paymsg-core prelude module re-exporting the most commonly used types. Add doc comments (///) to all public types, traits, and functions with usage examples. Ensure all public types implement standard traits: Debug, Clone, PartialEq, Serialize, Deserialize. Add #[must_use] to Result-returning functions. Add crate-level documentation (//! comments) in each lib.rs explaining the crate's purpose. Verify docs build with cargo doc --workspace --no-deps. Run final cargo test and cargo clippy.",
+      "priority": 24,
+      "passes": false
+    }
+  ]
+}
