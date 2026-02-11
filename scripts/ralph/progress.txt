@@ -729,3 +729,131 @@ Started: 2026-02-10
 
 ---
 
+
+## 2026-02-10 - PAYMSG-008 ✅ COMPLETE
+
+**Status**: Fully implemented and passing all quality checks
+
+### What was implemented:
+1. Created comprehensive pacs.009.001.10 XML parsing infrastructure (pacs009.rs):
+   - **Document**: Root wrapper for pacs.009 messages
+   - **FICdtTrf**: Main message container (different from pacs.008's FIToFICstmrCdtTrf)
+   - **GroupHeader**: Message-level information specific to pacs.009
+     - Same structure as pacs.008 GroupHeader but used in FI context
+     - MsgId, CreDtTm, NbOfTxs
+     - TtlIntrBkSttlmAmt (optional with currency attribute)
+     - IntrBkSttlmDt (optional)
+     - SettlementInformation with clearing system (reused from pacs.008)
+     - InstgAgt, InstdAgt (instructing/instructed agents)
+   - **CreditTransferTransactionInformation**: Transaction array specific to FI transfers
+     - PaymentIdentification (InstrId, EndToEndId, TxId, UETR) - reused from pacs.008
+     - PaymentTypeInformation (optional) - reused from pacs.008
+     - IntrBkSttlmAmt (mandatory settlement amount with Ccy attribute)
+     - IntrBkSttlmDt (optional)
+     - SettlementTimeIndication (optional: DbtDtTm, CdtDtTm) - NEW for pacs.009
+     - SettlementTimeRequest (optional: CLSTm, TillTm, FrTm, RjctTm) - NEW for pacs.009
+     - InstdAmt (optional instructed amount)
+     - XchgRate (optional exchange rate)
+     - ChrgBr (optional charge bearer)
+     - ChargesInformation (optional charges)
+     - InstgAgt, InstdAgt (instructing/instructed agents)
+     - IntrmyAgt1/2/3 (optional intermediary agents)
+     - **Cdtr**: BranchAndFinancialInstitutionIdentification (FI, not customer party!)
+     - CdtrAcct (optional cash account)
+     - CdtrAgt (creditor agent)
+     - InstrForNxtAgt (optional instructions)
+     - Purpose (optional payment purpose)
+     - RegulatoryReporting (optional)
+     - RemittanceInformation (optional)
+
+2. Key differences from pacs.008:
+   - **No Dbtr/DbtrAcct**: pacs.009 is for interbank transfers, no customer debtor
+   - **Cdtr is FI**: Uses BranchAndFinancialInstitutionIdentification, not PartyIdentification
+   - **Settlement time fields**: Added SettlementTimeIndication and SettlementTimeRequest structs
+   - **Simpler structure**: Fewer optional fields, focused on FI-to-FI transfers
+
+3. Reused common types from pacs.008:
+   - ActiveCurrencyAndAmount, ActiveOrHistoricCurrencyAndAmount
+   - BranchAndFinancialInstitutionIdentification
+   - CashAccount, AccountIdentification
+   - PaymentIdentification, PaymentTypeInformation
+   - InstructionForNextAgent, Purpose
+   - RegulatoryReporting, RemittanceInformation
+   - SettlementInformation, ClearingSystemIdentification
+
+4. Helper functions in lib.rs:
+   - **parse_pacs009()**: Convenience function to parse XML string to Document
+   - **serialize_pacs009()**: Serialize Document to XML string with proper namespace
+
+5. Comprehensive test coverage (7 new tests):
+   - **Unit tests in pacs009.rs** (2 tests):
+     - test_parse_minimal_pacs009: Validates basic parsing with inline XML
+     - test_parse_pacs009_with_settlement_time: Validates SettlementTimeIndication handling
+   - **Integration tests** (5 tests in pacs009_tests.rs):
+     - test_parse_minimal_valid: Validates minimal required fields using test data file
+     - test_parse_fi_transfer: Validates full FI transfer with all optional fields:
+       - Settlement information with FED clearing system
+       - UETR, payment type information with HIGH priority
+       - Settlement time indication with debit date/time
+       - Intermediary agent (BOFAUS3N)
+       - Full creditor details with postal address (JPMorgan Chase, NY)
+       - Creditor account (non-IBAN format)
+       - Instructions for next agent (PHOB code)
+       - Remittance information
+     - test_roundtrip_serialization: Parse → serialize → re-parse validation
+     - test_parse_with_optional_fields: Validates UETR, TxId, InstdAmt, XchgRate, ChrgBr
+     - test_parse_invalid_missing_element_should_fail: Validates error handling
+
+### Files changed:
+- crates/paymsg-iso20022/src/pacs009.rs (NEW - 336 lines)
+- crates/paymsg-iso20022/src/lib.rs (added pacs009 module and helper functions)
+- crates/paymsg-iso20022/tests/pacs009_tests.rs (NEW - 383 lines)
+
+### Quality checks passed:
+- ✅ `cargo build --workspace` - All crates compile with no warnings
+- ✅ `cargo test --workspace` - 186 tests pass (181 from previous + 5 new integration tests)
+  - 72 tests from paymsg-core
+  - 4 tests from paymsg-iso20022 unit tests (2 pacs008 + 2 pacs009)
+  - 7 tests from pacs008 integration tests
+  - 5 tests from pacs009 integration tests (NEW)
+  - 91 tests from paymsg-mt (all still passing)
+  - 9 doctests
+- ✅ `cargo clippy --workspace -- -D warnings` - No warnings
+- ✅ Committed changes with proper message format
+- ✅ Updated PRD: PAYMSG-008 passes = true
+
+### Learnings for future iterations:
+- **Type reuse strategy**: pacs.009 shares ~80% of types with pacs.008
+  - GroupHeader structure is identical (reused entire struct definition by creating new one with same fields)
+  - Most transaction-level types can be imported from pacs008 module
+  - Only create new types for pacs.009-specific structures (SettlementTimeIndication, SettlementTimeRequest)
+  - ChargesInformation needed separate definition (not imported) because pacs.008's version is private to that module
+- **FI vs Customer transfers**: Key semantic difference
+  - pacs.008 (Customer Credit Transfer): Has Dbtr (customer), DbtrAcct, Cdtr (customer), CdtrAcct
+  - pacs.009 (FI Credit Transfer): No Dbtr/DbtrAcct, Cdtr is BranchAndFinancialInstitutionIdentification (FI)
+  - This reflects the real-world distinction: MT103 (customer) vs MT202 (interbank)
+- **Settlement time fields**: pacs.009-specific
+  - SettlementTimeIndication: Indicates actual debit/credit times
+  - SettlementTimeRequest: Requests specific settlement timing (CLSTm=close time, TillTm=till time, FrTm=from time, RjctTm=reject time)
+  - These are important for high-value/time-critical FI transfers
+- **Optional ChrgBr**: In pacs.009, charge bearer is optional (default is SHAR for interbank)
+  - In pacs.008, it's mandatory because customer transfers need explicit charge allocation
+- **Test data structure**: paymsg-specs provides excellent test coverage
+  - minimal_valid.xml: Only mandatory fields
+  - fi_transfer.xml: Full featured FI transfer with all optional fields
+  - Both have .xml.meta.json files with expectations (though not used in these tests)
+- **Namespace handling**: Same pattern as pacs.008
+  - Parse: quick-xml automatically handles namespace during deserialization
+  - Serialize: Manually replace `<Document>` with namespace attribute
+  - Namespace: `urn:iso:std:iso:20022:tech:xsd:pacs.009.001.10`
+- **Integration test path resolution**: Same pattern as other crates
+  - CARGO_MANIFEST_DIR → parent(3x) → paymsg-specs/testdata/mx/pacs.009/
+  - Works correctly from any directory during `cargo test`
+- **Type imports**: Use selective imports to keep code clean
+  - Import only what's needed from pacs008 module
+  - Unused imports caught by compiler (removed Decimal and ClearingSystemIdentification)
+- **Documentation comments**: Added module-level doc comments explaining FI Credit Transfer context
+  - Helps future developers understand the domain (equivalent to MT202)
+
+---
+
