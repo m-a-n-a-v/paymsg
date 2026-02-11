@@ -23,6 +23,8 @@ enum Commands {
     Parse(commands::parse::ParseArgs),
     /// Validate a message against schema and business rules
     Validate(commands::validate::ValidateArgs),
+    /// Translate a message between MT and MX formats
+    Translate(commands::translate::TranslateArgs),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -40,5 +42,6 @@ fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::Parse(args) => commands::parse::execute(args),
         Commands::Validate(args) => commands::validate::execute(args),
+        Commands::Translate(args) => commands::translate::execute(args),
     }
 }
