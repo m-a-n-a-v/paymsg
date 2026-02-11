@@ -55,7 +55,7 @@
       "title": "ISO 20022 XML parser — pacs.009 (FI Credit Transfer)",
       "description": "In paymsg-iso20022, implement XML parsing for pacs.009.001.10. Define Rust structs for: Document > FICdtTrf > GrpHdr + CdtTrfTxInf[]. pacs.009 is similar to pacs.008 but for interbank transfers. Key differences: no Dbtr/Cdtr party details (only agents), different mandatory fields. Reuse common types from pacs.008 where possible (GrpHdr, PmtId, amount types, agent types). Write tests parsing pacs.009 XML files from ../paymsg-specs/testdata/mx/pacs.009/.",
       "priority": 8,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PAYMSG-009",
