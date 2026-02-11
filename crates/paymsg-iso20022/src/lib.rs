@@ -9,6 +9,7 @@
 use paymsg_core::PaymsgError;
 
 pub mod pacs008;
+pub mod pacs009;
 
 /// Result type for ISO 20022 operations.
 pub type Result<T> = std::result::Result<T, PaymsgError>;
@@ -32,6 +33,31 @@ pub fn serialize_pacs008(doc: &pacs008::Document) -> Result<String> {
     let with_ns = serialized.replace(
         "<Document>",
         r#"<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.10" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">"#,
+    );
+
+    buffer.push_str(&with_ns);
+    Ok(buffer)
+}
+
+/// Parse a pacs.009 message from XML string
+pub fn parse_pacs009(xml: &str) -> Result<pacs009::Document> {
+    quick_xml::de::from_str(xml)
+        .map_err(|e| PaymsgError::ParseError(format!("Failed to parse pacs.009 XML: {}", e)))
+}
+
+/// Serialize a pacs.009 message to XML string
+pub fn serialize_pacs009(doc: &pacs009::Document) -> Result<String> {
+    let mut buffer = String::new();
+    buffer.push_str(r#"<?xml version="1.0" encoding="UTF-8"?>"#);
+    buffer.push('\n');
+
+    let serialized = quick_xml::se::to_string_with_root("Document", doc)
+        .map_err(|e| PaymsgError::SerializationError(format!("Failed to serialize pacs.009 XML: {}", e)))?;
+
+    // Add namespace to the Document element
+    let with_ns = serialized.replace(
+        "<Document>",
+        r#"<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.009.001.10" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">"#,
     );
 
     buffer.push_str(&with_ns);
