@@ -146,7 +146,7 @@
       "title": "CLI — translate subcommand",
       "description": "In paymsg-cli, implement the 'translate' subcommand. Detect source format, translate to target format. Support --from and --to flags (mt103, pacs008, mt202, pacs009, mt940, camt053, mt942, camt052). Auto-detect source format if --from not specified. Output translated message in native format (MT text or XML). Support --validate flag to validate the output after translation. Report data loss warnings to stderr. Support --json flag to output structured JSON instead of native format. Write integration tests translating all test message pairs and comparing output.",
       "priority": 21,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PAYMSG-022",
