@@ -1708,3 +1708,68 @@ The pacs.008 module (PAYMSG-007) was implemented with **simplified structures** 
 - **TranslationResult pattern**: Using a result type with warnings collection is cleaner than throwing errors for lossy but valid translations.
 
 ---
+
+## 2026-02-10 - PAYMSG-016 ✅ COMPLETE
+
+**Status**: Fully implemented and passing all quality checks
+
+### What was implemented:
+1. MT202 → pacs.009 translation (mt202_to_pacs009.rs):
+   - Parse MT202 blocks 1-4 to extract instructing/instructed agents
+   - Parse field 20 (Transaction Reference) → InstrId
+   - Parse field 21 (Related Reference) → EndToEndId (or UETR if present)
+   - Parse field 32A (Value Date/Currency/Amount) → split into settlement date and amount
+   - Parse field 52A/D (Ordering Institution) → InstgAgt with BIC or name/address
+   - Parse field 57A/B/D (Account With Institution) → CdtrAgt
+   - Parse field 58A/D (Beneficiary Institution) → Cdtr
+   - Parse field 56A/D (Intermediary) → IntrmyAgt1 (optional)
+   - Parse field 72 (Sender to Receiver Info) → InstrForNxtAgt (optional)
+   - Generate GrpHdr with message ID, creation timestamp, and agent references
+   - Default ChrgBr to SHAR (MT202 has no charge bearer field)
+   - Track data loss warnings for missing MT202 fields
+
+2. pacs.009 → MT202 translation (pacs009_to_mt202.rs):
+   - Build Block 1 from instructing agent BIC (normalize to BIC8)
+   - Build Block 2 with destination BIC and message type 202
+   - Build Block 3 with UETR if present
+   - Build Block 4 with all MT202 fields:
+     - Field 20 from InstrId (truncate to 16 chars if needed)
+     - Field 21 from EndToEndId (truncate to 16 chars if needed)
+     - Field 32A from settlement date + currency + amount (merge transform)
+     - Field 52A/D from InstgAgt (BIC or name/address)
+     - Field 56A/D from IntrmyAgt1 (optional)
+     - Field 57A/D from CdtrAgt
+     - Field 58A/D from Cdtr
+     - Field 72 from InstrForNxtAgt (truncate to 210 chars if needed)
+   - Serialize fields to TextBlock content using serialize_fields()
+   - Track data loss warnings for truncation and omitted fields
+
+3. Export translation functions in lib.rs:
+   - Added module declarations for mt202_to_pacs009 and pacs009_to_mt202
+   - Exported translate_mt202_to_pacs009 and translate_pacs009_to_mt202 functions
+
+### Files created/modified:
+- crates/paymsg-translate/src/mt202_to_pacs009.rs (new, 519 lines)
+- crates/paymsg-translate/src/pacs009_to_mt202.rs (new, 473 lines)
+- crates/paymsg-translate/src/lib.rs (modified to add exports)
+
+### Quality checks passed:
+- ✅ `cargo build --workspace` - All crates compile successfully
+- ✅ `cargo test --workspace` - All 193 tests pass
+- ✅ `cargo clippy --workspace -- -D warnings` - No warnings or errors
+- ✅ Committed changes with proper message format
+- ✅ Updated PRD: PAYMSG-016 passes = true
+
+### Learnings for future iterations:
+- **MtField structure**: MtField uses `value: String` not `lines: Vec<String>`. Multi-line values are joined with `\n` in a single string
+- **TextBlock structure**: TextBlock has `content: String` not `fields: Vec<MtField>`. Must use `serialize_fields()` to convert fields to content
+- **PostalAddress structure**: Uses `address_line: Option<Vec<String>>` not `address_lines: Vec<String>`
+- **InstructionForNextAgent**: Uses `instruction_information` not `instruction_info`, and `code` not `instruction_code`
+- **PaymentIdentification**: Does not have `clearing_system_reference` field in pacs.008/pacs.009 structs
+- **ApplicationHeader**: Uses `bic` field not `destination_or_sender_bic`
+- **Amount precision**: pacs.009 uses `rust_decimal::Decimal` for amounts, must convert strings to Decimal with `Decimal::from_str()`
+- **BIC normalization**: Reuse `BicNormalizer::to_bic11()` and `BicNormalizer::to_bic8()` for consistent BIC handling
+- **Field parsing**: Use `parse_fields()` on TextBlock to get Vec<MtField>, then extract values from the `value` field
+- **MT202 simplicity**: MT202 is simpler than MT103 - no customer parties (fields 50/59), no charge fields (71A/F/G), mandatory related reference (field 21)
+
+---
