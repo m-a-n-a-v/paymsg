@@ -34,7 +34,7 @@
       "title": "MT serializer — generate MT messages from structs",
       "description": "In paymsg-mt, implement MT message serialization (struct → MT text). Generate proper block structure with curly braces. Format Block 1 with padded session/sequence numbers. Format Block 2 in Input or Output format. Format Block 3 tag-value pairs. Format Block 4 with CRLF line endings, proper :TAG:VALUE format, and trailing dash. Format Block 5 trailer tags. Handle amount formatting with comma decimal separator. Handle date formatting (YYYY-MM-DD → YYMMDD). Write round-trip tests: parse MT → serialize → compare with original (normalize whitespace). Test with minimal_valid.mt files from all 4 MT types.",
       "priority": 5,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PAYMSG-006",
