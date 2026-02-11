@@ -23,6 +23,10 @@ pub mod mt103_to_pacs008;
 // MX to MT translators
 pub mod pacs008_to_mt103;
 
+// MT202 ↔ pacs.009 translators
+pub mod mt202_to_pacs009;
+pub mod pacs009_to_mt202;
+
 // Re-exports
 pub use types::{
     AmountConverter, BicNormalizer, ChargeBearerConverter, DataLossCategory, DataLossWarning,
@@ -35,3 +39,7 @@ pub use types::{
 pub use mt103_to_pacs008::translate as translate_mt103_to_pacs008;
 
 pub use pacs008_to_mt103::translate as translate_pacs008_to_mt103;
+
+// MT202 ↔ pacs.009 translation functions
+pub use mt202_to_pacs009::translate as translate_mt202_to_pacs009;
+pub use pacs009_to_mt202::translate as translate_pacs009_to_mt202;
