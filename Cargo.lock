@@ -539,6 +539,8 @@ dependencies = [
  "paymsg-core",
  "paymsg-iso20022",
  "paymsg-mt",
+ "regex",
+ "rust_decimal",
  "serde",
  "serde_json",
  "thiserror",

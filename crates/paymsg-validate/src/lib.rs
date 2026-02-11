@@ -6,9 +6,17 @@
 //! - Cross-field validation
 //! - Reference data validation (currencies, BICs, IBANs)
 
+pub mod types;
+pub mod mt_schema;
+pub mod mx_schema;
+pub mod swift_charset;
+
+pub use types::*;
+pub use mt_schema::MtSchemaValidator;
+pub use mx_schema::MxSchemaValidator;
+pub use swift_charset::{SwiftCharsetValidator, SwiftCharsets};
+
 use paymsg_core::PaymsgError;
 
 /// Result type for validation operations.
 pub type Result<T> = std::result::Result<T, PaymsgError>;
-
-// Placeholder for future implementation
