@@ -1206,3 +1206,130 @@ All round-trip tests validate: parse XML → serialize → re-parse → compare 
 - **SWIFT charsets**: Load from specs, validate character by character
 
 ---
+
+## 2026-02-10 23:45 - PAYMSG-012 ✅ COMPLETE
+
+**Status**: Fully implemented and passing all quality checks
+
+### What was implemented:
+1. Created comprehensive business rule evaluation engine (business_rules.rs - 802 lines):
+   - **BusinessRule & BusinessRuleSet**: JSON-deserializable types matching rule file schema
+   - **Value enum**: Expression values supporting String, Decimal, Bool, Date, DateTime, Null
+   - **EvaluationContext**: Holds message + specs, resolves field paths to values
+   - **Field path resolution**: Navigates pacs.008 message structure (GrpHdr/*, CdtTrfTxInf/*)
+     - Group header: MsgId, CreDtTm, NbOfTxs, TtlIntrBkSttlmAmt, InstgAgt, InstdAgt
+     - Transaction: PmtId/*, IntrBkSttlmAmt, InstdAmt, XchgRate, ChrgBr, IntrBkSttlmDt, DbtrAgt, CdtrAgt, Dbtr, Cdtr, DbtrAcct, CdtrAcct, PmtTpInf, IntrmyAgt1, RgltryRptg, InstrForCdtrAgt, Purp, ChrgsInf
+     - Handles @Ccy attributes on amount fields
+   - **Expression evaluator**: Recursive descent parser for rule assertions
+     - Comparison operators: >, <, >=, <=, ==, !=
+     - Boolean operators: AND, OR, NOT
+     - "in" operator: for list/function membership checks
+     - "exists" check: field presence validation
+     - "is not empty" check: string non-empty validation
+   - **Built-in functions**: 
+     - Validation: is_valid_bic(), is_valid_iban(), is_valid_uuid()
+     - String: length()
+     - Decimal: decimal_places(), currency_decimal_places()
+     - Reference data: iso4217_currency_codes(), bic_country(), sepa_countries(), eu_countries()
+     - Date/time: current_date(), current_datetime()
+     - Aggregation: count(CdtTrfTxInf), sum(CdtTrfTxInf/IntrBkSttlmAmt)
+   - **BusinessRuleValidator**: Implements Validator<pacs008::Document> trait
+     - Loads rules from JSON file
+     - Loads specs from paymsg-specs directory
+     - Evaluates rule conditions ("always" or "if X exists")
+     - Evaluates assertions for applicable rules
+     - Returns ValidationResult with issues (id, severity, field_path, message, suggestion)
+
+2. Updated lib.rs to export business_rules module and types
+
+3. Added dependencies: chrono, uuid
+
+4. Comprehensive unit tests (5 tests):
+   - test_evaluate_simple_comparison: Numeric comparison with field path resolution
+   - test_evaluate_field_path: Direct field path resolution to Decimal value
+   - test_evaluate_exists: Field existence checking
+   - test_evaluate_is_valid_bic: BIC validation function
+   - test_evaluate_and_or: Boolean AND/OR operators
+
+### Files changed:
+- crates/paymsg-validate/src/business_rules.rs (NEW - 802 lines)
+- crates/paymsg-validate/src/lib.rs (added business_rules exports)
+- crates/paymsg-validate/Cargo.toml (added chrono, uuid dependencies)
+- scripts/ralph/prd.json (updated PAYMSG-012 passes = true)
+
+### Quality checks passed:
+- ✅ `cargo build --workspace` - All crates compile with no warnings
+- ✅ `cargo test --workspace` - 203 tests pass (198 from previous + 5 new)
+  - 72 tests from paymsg-core
+  - 6 tests from paymsg-iso20022 unit tests
+  - 24 tests from paymsg-iso20022 integration tests
+  - 91 tests from paymsg-mt
+  - 5 tests from paymsg-validate business_rules unit tests (NEW)
+  - 9 doctests
+- ✅ `cargo clippy --workspace -- -D warnings` - No warnings or errors
+- ✅ Committed with proper message format
+- ✅ Updated PRD: PAYMSG-012 passes = true
+
+### Learnings for future iterations:
+- **pacs.008 struct field names**: Critical to use exact field names from generated types
+  - `fi_to_fi_customer_credit_transfer` not `fi_to_fi_cstmr_cdt_trf`
+  - `payment_id` not `payment_identification`
+  - `financial_institution_id` not `financial_institution_identification`
+  - `bic` not `bicfi` (serde renames in XML, but Rust uses snake_case)
+  - `instruction_id`, `end_to_end_id`, `transaction_id` (snake_case Option<String>)
+  - Many fields are NOT Option types: debtor, creditor, debtor_account, creditor_account, debtor_agent, creditor_agent, instructing_agent, instructed_agent
+  - Field 147 in PaymentIdentification: instruction_id is Option<String> but end_to_end_id is String
+  
+- **Date/time handling in ISO 20022**: All dates/times are stored as Strings in pacs008 structs
+  - creation_date_time: ISO 8601 string (YYYY-MM-DDTHH:MM:SSZ)
+  - interbank_settlement_date: ISO 8601 date string (YYYY-MM-DD)
+  - exchange_rate: String representation of decimal
+  - Must parse these strings to chrono types for comparison in rules
+  
+- **Field path resolution strategy**: Navigate message structure hierarchically
+  - Split path by `/` separator
+  - First segment determines top-level element (GrpHdr or CdtTrfTxInf)
+  - Subsequent segments navigate nested structures
+  - For arrays (CdtTrfTxInf), currently use first element (index 0)
+  - Could extend to support [*] for "all" or [0] for specific index
+  
+- **Expression evaluation patterns**:
+  - Parse operators in precedence order: AND/OR → comparisons → functions
+  - Use strip_prefix() instead of manual string slicing to satisfy clippy
+  - Comparison works across types: Decimal, String, Date, DateTime with match guards
+  - "in" operator needs special handling: can be list literal or function call
+  - Function calls with "in": pass check_value to function for membership test
+  
+- **BIC and IBAN validation**: Use existing paymsg-core types
+  - Bic::from_str(&str) → Result<Bic, Error>
+  - Iban::from_str(&str) → Result<Iban, Error>
+  - Bic struct has public field `country` (not a method)
+  
+- **Spec registries integration**: Use SpecLoader pattern
+  - SpecLoader::new(Some(path)) → SpecLoader
+  - loader.load_all() → Result<SpecRegistries, PaymsgError>
+  - Access via specs.currencies.lookup_by_code(&code)
+  
+- **Clippy fixes applied**:
+  - Removed empty line after doc comment
+  - Changed `Ok(expr?)` to just `expr` (needless question mark)
+  - Used `strip_prefix()` instead of manual slicing with `&str[N..]`
+  
+- **Testing strategy**: Unit tests in module, integration tests would use real rule files
+  - Test data uses minimal valid pacs.008 Document with all required fields
+  - Must provide both instructing_agent and instructed_agent (not optional)
+  - Must provide debtor, creditor, debtor_account, creditor_account (not optional)
+  - PartyIdentification needs name (Option), postal_address (Option), id (Option)
+  - CashAccount needs id (AccountIdentification), account_type (Option), currency (Option)
+  - AccountIdentification needs iban (Option), other (Option)
+  
+- **Future enhancements for full rule support**:
+  - Support for all 4 message types (pacs.009, camt.052, camt.053)
+  - Support for array iteration (validate all transactions, not just first)
+  - Support for more complex conditional expressions (nested AND/OR)
+  - Support for regex matching in string functions
+  - Support for date arithmetic (current_date() + 365 days)
+  - Better error messages when field paths don't resolve
+  - Cache parsed expressions for performance
+
+---

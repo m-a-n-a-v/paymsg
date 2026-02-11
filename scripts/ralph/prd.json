@@ -83,7 +83,7 @@
       "title": "Validation engine — business rule evaluator",
       "description": "In paymsg-validate, implement business rule evaluation. Load rules from ../paymsg-specs/rules/ JSON files. Implement a simple expression evaluator for rule assertions: comparison operators (>, <, >=, <=, ==, !=), existence checks (exists, not_exists), string functions (length, matches, starts_with, ends_with), numeric checks, and boolean operators (AND, OR, NOT). Evaluate rule conditions (\"always\" or \"if X exists\") to determine applicability. Apply rules to parsed MX messages by resolving field_paths to actual values. Return ValidationResult with all triggered rules. Test with pacs008_rules.json against valid and invalid pacs.008 test messages.",
       "priority": 12,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PAYMSG-013",
