@@ -6,7 +6,7 @@
       "title": "Workspace scaffolding and core crate foundation",
       "description": "Create the Rust workspace with all 7 crates. Set up workspace-level Cargo.toml with shared dependencies. Implement paymsg-core with foundational types: Amount (using rust_decimal::Decimal), Currency, Bic, Iban, Date, MessageType enum (MT103, MT202, MT940, MT942, Pacs008, Pacs009, Camt052, Camt053), and a comprehensive error type hierarchy using thiserror. Add serde Serialize/Deserialize derives to all types. Write unit tests for Amount arithmetic, Currency lookup, BIC validation (8 and 11 chars), and IBAN check digit validation (Mod-97). Ensure cargo build, cargo test, and cargo clippy all pass.",
       "priority": 1,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PAYMSG-002",

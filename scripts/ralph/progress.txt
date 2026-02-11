@@ -2,13 +2,33 @@
 Started: 2026-02-10
 
 ## Codebase Patterns
-(To be populated as patterns are discovered)
+
+### Core Type Design
+- **Financial amounts**: Always use `rust_decimal::Decimal`, never `f64`, for precise arithmetic
+- **Serde derives**: All public types need `Debug, Clone, PartialEq, Serialize, Deserialize`
+- **Transparent serialization**: Use `#[serde(transparent)]` for newtype wrappers to avoid nested JSON
+- **Error handling**: Use `thiserror` in libraries, `anyhow` only in binaries (CLI)
+
+### Validation Patterns
+- **BIC validation**: BIC8 (8 chars) and BIC11 with branch="XXX" both represent head office
+- **IBAN validation**: Mod-97 algorithm requires processing large numbers in chunks to avoid overflow
+- **Currency codes**: ISO 4217 format - exactly 3 uppercase letters
+
+### Date/Time Handling
+- **MT formats**: Use YYMMDD (assumes 20XX century) for SWIFT MT messages
+- **MX formats**: Use ISO 8601 (YYYY-MM-DD) for ISO 20022 MX messages
+- **Chrono traits**: Import `Datelike` for date methods, `Timelike` for time methods
+
+### Workspace Structure
+- 7 crates with clear dependency hierarchy: core → mt/iso20022 → validate → translate → cli
+- Shared dependencies in workspace Cargo.toml with `workspace = true` references
+- All crates use workspace-level version, edition, and metadata
 
 ---
 
-## 2026-02-10 - PAYMSG-001 (IN PROGRESS)
+## 2026-02-10 - PAYMSG-001 ✅ COMPLETE
 
-**Status**: Implementation complete, awaiting Rust/Cargo installation for build verification
+**Status**: Fully implemented and passing all quality checks
 
 ### What was implemented:
 1. Created workspace-level Cargo.toml with all 7 crates configured
@@ -65,17 +85,15 @@ Started: 2026-02-10
 - crates/paymsg-codegen/{Cargo.toml, src/lib.rs}
 - crates/paymsg-cli/{Cargo.toml, src/main.rs}
 
-### Blockers:
-- **Rust/Cargo not installed** on system: Cannot run `cargo build --workspace`, `cargo test --workspace`, or `cargo clippy --workspace`
-- Need Rust toolchain installed to verify compilation and run tests
-
-### Next steps:
-1. Install Rust/Cargo (via rustup or system package manager)
-2. Run `cargo build --workspace` to verify compilation
-3. Run `cargo test --workspace` to verify all unit tests pass
-4. Run `cargo clippy --workspace -- -D warnings` to check for lint issues
-5. Commit changes if all checks pass
-6. Update PRD to mark PAYMSG-001 as passes: true
+### Quality checks passed:
+- ✅ Installed Rust 1.93.0 via Homebrew
+- ✅ `cargo build --workspace` - All crates compile successfully
+- ✅ `cargo test --workspace` - 63 unit tests + 9 doctests pass
+- ✅ `cargo clippy --workspace -- -D warnings` - No warnings or errors
+- ✅ Fixed chrono trait import issues (Datelike, Timelike)
+- ✅ Fixed Date/DateTime serde serialization with #[serde(transparent)]
+- ✅ Committed changes with proper message format
+- ✅ Updated PRD: PAYMSG-001 passes = true
 
 ### Learnings for future iterations:
 - **Amount type**: Always use rust_decimal::Decimal, never f64, for financial amounts
