@@ -1,4 +1,4 @@
-use paymsg_iso20022::{camt052, parse_camt052, serialize_camt052};
+use paymsg_iso20022::{parse_camt052, serialize_camt052};
 use std::path::PathBuf;
 
 fn get_test_data_path() -> PathBuf {
@@ -138,7 +138,7 @@ fn test_parse_intraday_report() {
 
     // Check additional entry info (AddtlNtryInf is on transaction details, not entry)
     let details4 = entry4.entry_details.as_ref().unwrap();
-    let tx4 = &details4[0].transaction_details.as_ref().unwrap()[0];
+    let _tx4 = &details4[0].transaction_details.as_ref().unwrap()[0];
     // The AddtlNtryInf field may not be parsed - skip this assertion for now
     // This field is optional and the parsing may need adjustment
 }

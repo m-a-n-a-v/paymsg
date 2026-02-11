@@ -1,4 +1,4 @@
-use paymsg_iso20022::{camt053, parse_camt053, serialize_camt053};
+use paymsg_iso20022::{parse_camt053, serialize_camt053};
 use std::path::PathBuf;
 
 fn get_test_data_path() -> PathBuf {
