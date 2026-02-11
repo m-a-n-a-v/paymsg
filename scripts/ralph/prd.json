@@ -118,7 +118,7 @@
       "title": "Translation engine — MT940 ↔ camt.053",
       "description": "In paymsg-translate, implement bidirectional MT940 ↔ camt.053 translation. Load mappings from mt940_camt053.json. This is more complex due to statement lines. Map :60F: opening balance → Bal[OPBD], :62F: closing balance → Bal[CLBD], :64: → Bal[CLAV], :65: → Bal[FWAV]. Map :61: statement lines → Ntry entries (date, amount, debit/credit, transaction type, reference). Map :86: information lines → Ntry/AddtlNtryInf. Handle balance D/C indicator mapping. Handle statement pagination (:28C: statement number). Test with mt940_camt053 translation pairs.",
       "priority": 17,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PAYMSG-018",

@@ -1773,3 +1773,78 @@ The pacs.008 module (PAYMSG-007) was implemented with **simplified structures** 
 - **MT202 simplicity**: MT202 is simpler than MT103 - no customer parties (fields 50/59), no charge fields (71A/F/G), mandatory related reference (field 21)
 
 ---
+
+## 2026-02-10 - PAYMSG-017 ✅ COMPLETE
+
+**Status**: Fully implemented and passing all quality checks
+
+### What was implemented:
+1. **MT940 → camt.053 Translation** (mt940_to_camt053.rs):
+   - Balance field mapping with proper BalTp codes:
+     - 60F/60M (Opening Balance) → OPBD with FINAL/INTERIM sub-type
+     - 62F/62M (Closing Balance) → CLBD with FINAL/INTERIM sub-type
+     - 64 (Closing Available) → CLAV
+     - 65 (Forward Available) → FWAV
+   - Field 28C split into LglSeqNb and ElctrncSeqNb
+   - Field 25/25P account identification with IBAN validation
+   - Field 61 (Statement Line) parsing into Entry elements:
+     - Value date and booking date conversion (YYMMDD → YYYY-MM-DD)
+     - D/C indicator mapping (C → CRDT, D → DBIT, RC/RD → reversal)
+     - Amount conversion (comma → period decimal separator)
+     - Transaction type code preservation in BkTxCd/Prtry
+     - Customer reference and bank reference extraction
+     - Supplementary details handling
+   - Field 86 (Information to Account Owner) → remittance info
+   - Generated GrpHdr with UUID message ID and current timestamp
+
+2. **camt.053 → MT940 Translation** (camt053_to_mt940.rs):
+   - Reverse balance mapping (BalTp codes → MT fields)
+   - Entry elements → field 61 with proper format:
+     - Date conversion (YYYY-MM-DD → YYMMDD)
+     - Reversal indicator handling (CRDT + reversal → RC, DBIT + reversal → RD)
+     - Amount conversion (period → comma decimal separator)
+     - Transaction type code extraction
+   - Remittance info → field 86
+   - BIC normalization (BIC11 → BIC8 when ending with XXX)
+   - Default Block 1 and Block 2 generation (not present in camt.053)
+
+3. **Comprehensive Integration Tests** (mt940_camt053_tests.rs):
+   - test_mt940_to_camt053_minimal: Basic translation with opening/closing balances
+   - test_camt053_to_mt940_roundtrip: Round-trip translation preserves key fields
+   - test_mt940_with_entries: Translation with statement entries (field 61 + 86)
+   - test_mt940_balance_types: All balance types (OPBD, CLBD, CLAV, FWAV)
+   - test_translation_infrastructure_exists: Verify public API exports
+
+### Files created/modified:
+- crates/paymsg-translate/src/mt940_to_camt053.rs (NEW - 665 lines)
+- crates/paymsg-translate/src/camt053_to_mt940.rs (NEW - 466 lines)
+- crates/paymsg-translate/src/lib.rs (added module exports)
+- crates/paymsg-translate/tests/mt940_camt053_tests.rs (NEW - 5 tests)
+
+### Quality checks passed:
+- ✅ `cargo build --workspace` - All crates compile
+- ✅ `cargo test --workspace` - All tests pass (5 new MT940/camt.053 tests)
+- ✅ `cargo clippy --workspace -- -D warnings` - No warnings
+- ✅ Committed changes with proper message format
+- ✅ Updated PRD: PAYMSG-017 passes = true
+
+### Learnings for future iterations:
+- **Balance type mapping**: MT940 has 6 balance types (60F/60M/62F/62M/64/65) that map to 4 camt.053 BalTp codes (OPBD/CLBD/CLAV/FWAV) with sub-type distinguishing FINAL vs INTERIM
+- **Field 61 complexity**: Statement line parsing is the most complex field in MT940 with 9 optional components: value date, entry date, D/C mark, funds code, amount, transaction type, customer reference, bank reference, supplementary details
+- **Currency inheritance**: In MT940, field 61 amounts inherit currency from balance fields (60F/62F), not specified per entry
+- **Reversal handling**: MT940 uses RC/RD for reversals, camt.053 uses separate reversal_indicator boolean field
+- **Data loss warnings**: MT940 has no message-level metadata (MsgId, CreDtTm), so these must be generated with warnings for MX → MT translation
+- **BIC normalization**: Use to_bic8() when translating MX → MT to match SWIFT convention, use to_bic11() for MT → MX
+- **TransactionDetails struct**: Has 22 optional fields - need to explicitly initialize all when creating new instances (no Default trait)
+- **IBAN detection**: Use Iban::new() to validate if account string is valid IBAN format before choosing AccountIdentification type
+- **Date conversion**: Always use DateConverter utility for consistent YYMMDD ↔ YYYY-MM-DD conversion with century inference
+
+### Translation coverage:
+- ✅ MT940 → camt.053 (forward translation)
+- ✅ camt.053 → MT940 (reverse translation)
+- ✅ Round-trip translation preserves key fields
+- ✅ Handles all balance types
+- ✅ Handles statement entries with supplementary info
+- ✅ Proper data loss warnings for generated fields
+
+---
