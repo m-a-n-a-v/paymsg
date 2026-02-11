@@ -13,7 +13,7 @@
       "title": "Spec loader — load reference data from paymsg-specs",
       "description": "In paymsg-core, implement a SpecLoader that reads JSON files from the paymsg-specs sibling repository. Define Rust structs matching the JSON schemas: CurrencySpec (code, name, numeric_code, decimal_places, is_active), CountrySpec (code, name, alpha3, numeric_code, is_active), IbanFormat (country_code, length, bban_format regex, example, bank_id_position), BicSpec (structure definition), SwiftCharset definitions. Load from PAYMSG_SPECS_DIR env var or default to ../paymsg-specs. Implement CurrencyRegistry, CountryRegistry, IbanRegistry with lookup methods. Write tests that load actual JSON files from ../paymsg-specs/reference/.",
       "priority": 2,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PAYMSG-003",

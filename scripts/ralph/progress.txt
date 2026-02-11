@@ -104,3 +104,66 @@ Started: 2026-02-10
 - **Error handling**: Use thiserror in libraries, anyhow only in binaries (CLI)
 
 ---
+## 2026-02-10 - PAYMSG-002 ✅ COMPLETE
+
+**Status**: Fully implemented and passing all quality checks
+
+### What was implemented:
+1. Created comprehensive spec loading infrastructure in paymsg-core/src/specs.rs:
+   - **SpecLoader**: Main loader class that reads JSON files from paymsg-specs directory
+     - Supports PAYMSG_SPECS_DIR environment variable for custom paths
+     - Smart path resolution using CARGO_MANIFEST_DIR during tests
+     - Default path: ../paymsg-specs relative to workspace root
+   - **Data structures**: Defined Rust structs matching JSON schemas:
+     - CurrencySpec (code, name, numeric_code, decimal_places, is_active)
+     - CountrySpec (alpha2, alpha3, numeric, name, is_eu_member)
+     - IbanFormat (country_code, length, bban_format, example, bank_id_position)
+     - BicSpec (structure with components array)
+     - SwiftCharset (name, description, characters array)
+   - **Registries with lookup methods**:
+     - CurrencyRegistry: lookup_by_code(), lookup_by_numeric(), all_codes()
+     - CountryRegistry: lookup_by_alpha2(), lookup_by_alpha3(), lookup_by_numeric()
+     - IbanRegistry: lookup(), supported_countries()
+   - **SpecRegistries**: Container holding all loaded registries
+   - All types derive Debug, Clone, PartialEq, Serialize, Deserialize
+
+2. Updated error.rs to add SpecLoadError variant with file and reason fields
+
+3. Updated lib.rs to export specs module and add key types to prelude
+
+4. Comprehensive unit tests (9 new tests):
+   - test_load_currencies: Validates USD (2 decimals), JPY (0 decimals), BHD (3 decimals)
+   - test_load_countries: Validates US (not EU), DE (is EU), alpha2/alpha3 lookups
+   - test_load_iban_formats: Validates DE and GB IBAN formats with correct lengths
+   - test_load_bic_spec: Validates BIC structure components
+   - test_load_swift_charsets: Validates X, Y, Z character sets loaded
+   - test_load_all: Validates SpecRegistries loading all data
+   - Registry method tests for all three registry types
+
+### Files changed:
+- crates/paymsg-core/src/specs.rs (NEW - 606 lines)
+- crates/paymsg-core/src/error.rs (added SpecLoadError variant)
+- crates/paymsg-core/src/lib.rs (exported specs module)
+
+### Quality checks passed:
+- ✅ `cargo build --workspace` - All crates compile
+- ✅ `cargo test --workspace` - 72 unit tests + 9 doctests pass (63 from PAYMSG-001 + 9 new)
+- ✅ `cargo clippy --workspace -- -D warnings` - No warnings
+- ✅ Committed changes with proper message format
+- ✅ Updated PRD: PAYMSG-002 passes = true
+
+### Learnings for future iterations:
+- **CARGO_MANIFEST_DIR**: During tests, need to navigate from crate dir (e.g., crates/paymsg-core) up 3 levels to reach the sibling paymsg-specs directory
+- **Path resolution strategy**: 
+  1. Check PAYMSG_SPECS_DIR env var first (explicit override)
+  2. In tests, use CARGO_MANIFEST_DIR + navigation logic
+  3. Otherwise fallback to ../paymsg-specs (for runtime use from workspace root)
+- **JSON structure patterns**:
+  - Some JSON files have a wrapper object with metadata (currencies.json has version/last_updated)
+  - Others are top-level arrays (countries.json, iban_formats.json)
+  - Need different deserialization structs depending on file structure
+- **Registry pattern**: Use HashMap for O(1) lookups, clone data into multiple maps indexed by different keys (code, numeric, alpha2, alpha3, etc.)
+- **Smart defaults**: All registries provide len(), is_empty(), and various all_*() methods for introspection
+
+---
+
