@@ -132,7 +132,7 @@
       "title": "CLI — parse subcommand",
       "description": "In paymsg-cli, implement the CLI binary using clap derive macros. Implement the 'parse' subcommand: detect message format (MT vs MX) automatically from content, parse the message, and output structured JSON representation. Support reading from file path or stdin. Support --format flag to force MT or MX parsing. Support --output flag for output file (default stdout). Support --pretty flag for pretty-printed JSON. Add proper error messages with context (file path, line number for parse errors). Implement format auto-detection: starts with '{1:' → MT, starts with '<?xml' or '<Document' → MX. Write integration tests with test message files.",
       "priority": 19,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PAYMSG-020",

@@ -1913,3 +1913,33 @@ The pacs.008 module (PAYMSG-007) was implemented with **simplified structures** 
 - **Clippy improvements**: Use `.cloned()` instead of `.map(|x| x.clone())`, avoid needless borrows, add type annotations for ambiguous cases
 
 ---
+
+## 2026-02-10 - PAYMSG-019
+
+- Implemented CLI parse subcommand with clap derive macros
+- Added modular command structure with separate files for each subcommand
+- Implemented format auto-detection (MT vs MX) based on content analysis
+- Added support for reading from file path or stdin
+- Implemented --format flag to force MT or MX parsing
+- Implemented --output flag for writing to file (default stdout)
+- Implemented --pretty flag for pretty-printed JSON output
+- Added comprehensive error handling with anyhow context
+- Created 9 integration tests covering various parse scenarios
+- All tests pass (9/9 integration tests + all existing workspace tests)
+
+### Files changed:
+- crates/paymsg-cli/src/main.rs - Restructured to use subcommands
+- crates/paymsg-cli/src/commands/mod.rs - Commands module (new)
+- crates/paymsg-cli/src/commands/parse.rs - Parse command implementation (new)
+- crates/paymsg-cli/Cargo.toml - Added serde dependency
+- crates/paymsg-cli/tests/parse_tests.rs - Integration tests (new)
+- scripts/ralph/prd.json - Updated PAYMSG-019 passes to true
+
+### Learnings for future iterations:
+- **Large enum variants**: Use `Box<T>` to reduce enum size when variants differ significantly in size (clippy::large_enum_variant)
+- **Serde serialization**: MessageType uses `#[serde(rename_all = "snake_case")]` so serializes as "mt940" not "Mt940"
+- **Format detection**: Simple content prefix matching works well for MT ({1:) vs MX (<?xml or <Document)
+- **Integration tests**: Use Command::new() to test CLI binaries, check for testdata existence to make tests optional
+- **Error context**: Use anyhow's .context() and .with_context() for rich error messages with file paths
+
+---
