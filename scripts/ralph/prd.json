@@ -111,7 +111,7 @@
       "title": "Translation engine — MT202 ↔ pacs.009",
       "description": "In paymsg-translate, implement bidirectional MT202 ↔ pacs.009 translation. Load mappings from mt202_pacs009.json. MT202 is simpler than MT103 (no ordering/beneficiary customer, only FI parties). Key fields: :20: (reference), :21: (related reference), :32A: (value date/currency/amount), :52A: (ordering institution), :58A: (beneficiary institution), :57A: (account with institution). Reuse transform infrastructure from MT103 translation. Test with mt202_pacs009 translation pairs.",
       "priority": 16,
-      "passes": false
+      "passes": true
     },
     {
       "id": "PAYMSG-017",
